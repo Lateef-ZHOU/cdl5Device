@@ -1,8 +1,14 @@
 # 验证记录
 
+## 2026-10-31：按实物确认切回 4 kHz（用户定）
+
+用户确认尚未更换 FPGA 逻辑，板卡仍为 4 kHz。只将 Cdl5ActiveCollector 改为 Cdl5FourKCollector（500×128）；三路收集长度、页面尺寸和保存点数由同一类型导出，不修改协议、Handle、DMA 或 Bridge。之前的 5 kHz 实物判断撤回，两个规格类型均保留。
+
+Windows Release 增量构建（含独立头文件）通过，无新增编译诊断；CTest 3/3（UDP、两规格 Collector、8 秒 QML 页面）通过。证据 out/build-four-k.log、out/test-four-k.log。本轮未重跑 Linux、未做实卡采集，不改板卡服务或镜像、不推送。
+
 ## 2026-10-31：Windows 主程序接入准备
 
-默认桌面 Collector 改为 Cdl5FiveKCollector（450×128），对齐上一轮板卡活动配置核查。Handle、DMA、协议和重试逻辑未改。
+此阶段曾将默认桌面 Collector 改为 Cdl5FiveKCollector（450×128）。随后用户确认未更换 FPGA、实物仍为 4 kHz，此处规格判断已纠正；下列测试结果保留为当时的 450×128 软件验证，不能据此判定实物版本。Handle、DMA、协议和重试逻辑未改。
 
 - Windows Release 增量构建与单头编译通过，未见 C++ 编译警告；CTest 3/3，QML 冒烟运行 8 秒；LidarCdl5Device_qmllint 通过。
 - 页面验证新增 DAQ 族归属、唯一后端/页面所有权、只读具体 Collector 原型、离线启动拒绝和页面销毁释放检查。
