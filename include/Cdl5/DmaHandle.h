@@ -18,8 +18,7 @@ public:
 protected:
     ~DmaHandle() override = default;
 
-private:
-    std::shared_ptr<DmaConnection> connOpen(const DmaParameters &params) final
+    std::shared_ptr<DmaConnection> connOpen(const DmaParameters &params) override
     {
         try
         {

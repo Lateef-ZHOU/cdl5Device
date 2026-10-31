@@ -1,5 +1,32 @@
 # 验证记录
 
+## 2026-10-31：三路原谱、UDP 官邸与 DMA 采集
+
+本轮新实现已经构建验证，尚未真实 FPGA 联调。未接入主程序，未安装新板端服务、改驱动/镜像或 eMMC；没有推送。
+
+| 环境 / 入口 | 实际结果 |
+|---|---|
+| Windows x64 / MSVC 19.51 / Qt 6.11.2 / Npcap | UDP+桌面 Release 构建无 C++ 警告，单头编译通过；CTest 3/3；CMake qmllint 通过 |
+| ArchHFNL x86_64 / GCC 16.2.1 / Qt 6.12.0 / libpcap 1.11 | DMA+UDP+桌面 Release 构建通过；CTest 6/6 |
+| Linux 只启用 DMA | 严格警告构建、CTest 2/2 通过；依赖只有 Qt Core，不引入 Pcap、串口、QML |
+| Linux 所有可选模块默认关闭 | 重新配置和构建通过，无 Qt/传输依赖查询 |
+| ARM64 / GCC12 / Qt Core6.8.3 / 板卡 glibc sysroot | 资源及采集测试交叉构建通过；所需 glibc 基线 GLIBC_2.17 |
+| 板卡 /run/cdl5_dma_capture_probe-arm64 | 模拟系统调用/寄存器运行通过，退出0；未打开真实 DMA 或 /dev/mem |
+
+覆盖内容：
+
+- 两种 Collector（500×128、450×128）：三路小端 FP32 位解释后转 double，未对齐读取与小数保留；逐元素 meta 填任意字节仍按顺序追加；原型不 reserve、makeSelf 独立 reserve；缺尾包不完成、错误形状/非32字节整包拒绝、完成后不再写入。
+- 生产 Device/Collector/consumeFrames 链：模拟 Pcap 收包后仅一次完成回调，三路谱信号在主线程收到；三份 ADC 文件各为64000个小端 double，逐项读取核对正确。没有在测试中替换 Device 或处理逻辑。
+- DMA 实际 Handle 工作线程：只读打开，寄存器取得两种帧长/周期，START 在 FPGA 触发前；短 read/EINTR 补满块、2001/1801包及32字节尾包逐字节匹配；关闭在途采集丢弃并同步退出；START、WAIT_KEEP、read 失败和长度不完整均诊断、RESET 并关闭，无上传。
+- 资源层原100项断言保持通过。QML冒烟运行8秒，核对三个图页、唯一后端归属及页面析构后的释放，无QML警告；这是离屏页面装配验证，不等于真实GPU画面验收。
+- BridgeCore 同时验证生产 Cdl5DmaHandle → 主线程排队 → Pcap send，两个尺寸字节无改变，Linux与板卡ARM64模拟验证均通过。详细记录在 BridgeCore/VALIDATION.md。
+
+证据：本机 out/build-final.log、out/build-final-headers.log、out/arm-board-final.txt 和 build-win/Testing/Temporary/LastTest.log；ArchHFNL 的 ~/.cache/cdl5Device-20261031/{build-linux,build-dma-only,out}。Qt桌面配置存在依赖包可选TaskTree/Vulkan查找提示，不是本轮C++编译警告。HandleCore 与 TaskCore 使用固定远端提交；板端 SDK 测试使用这些版本的本地源码挂载。
+
+物理风速/CNR、距离门映射及风廓线本轮未实现。真实 FPGA 的停止/恢复、UDP 丢包及吞吐仍待部署联调；模拟数据通过不作实采结论。
+
+## 2026-10-31：初始资源层迁移（历史阶段）
+
 2026-10-31：创建本地仓库并迁入连接资源层，本轮验证已完成。
 
 | 环境 / 入口 | 实际结果 |
@@ -30,6 +57,6 @@ DMA 测试沿用原 100 项资源断言，仅调整包含路径；原生及 ARM 
 
 旧用户态实现、测试及构建入口从 DmaProxy 移出；其 README 指向本仓，历史资源验证仍在原 validation 目录。驱动与 ABI 不迁移、不复制。
 
-## 当前未验证 / 未实现
+## 初始资源层阶段的范围（后续以上方新记录为准）
 
 没有完整 DMA 开采、等待、分块读取、取消或 FPGA 配置；没有 UDP 下行采集命令、Collector、三路处理、保存或 QML 页面。因此未执行主程序 UI 冒烟或真实采集测试，也未接入 Bridge、主程序、simonly 或旧 sim-ui。未创建远端、推送、发布 Release 或修改交付包。
