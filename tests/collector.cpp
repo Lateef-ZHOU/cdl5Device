@@ -46,6 +46,21 @@ template<int Gates> void verify()
     splitHeader->feed(frame.first(32), stamp);
     splitHeader->feed(frame.mid(32, 1024), stamp);
     check(splitHeader->constFrame()[0].size() == 32, "header-only packet not confused with no header");
+
+    // Npcap can receive seven original 1024-byte chunks as one 7168-byte batch.
+    auto coalesced = prototype->makeSelf();
+    check(!coalesced->feed(frame.first(7169), stamp) && coalesced->constFrame()[0].isEmpty(),
+          "coalesced but unaligned input rejected without consuming header");
+    for (qsizetype offset = 0; offset < frame.size() - 32; offset += 7168) {
+        const auto batch = frame.mid(offset, std::min<qsizetype>(7168, frame.size() - 32 - offset));
+        check(!coalesced->feed(batch, stamp), "coalesced batches still require final record");
+    }
+    const auto before = coalesced->constFrame()[0].size();
+    check(!coalesced->feed(QByteArray(64, 0), stamp) && coalesced->constFrame()[0].size() == before,
+          "oversized tail rejected without partial append");
+    check(coalesced->feed(frame.last(32), stamp), "coalesced frame completes on actual tail");
+    check(coalesced->constFrame() == result->constFrame() && coalesced->frameTime() == stamp,
+          "coalescing preserves every ADC value and first arrival time");
 }
 int main()
 {
@@ -55,5 +70,5 @@ int main()
     check(Cdl5::command(2).toHex() == "43444c3502000000", "command wire bytes");
     check(!Cdl5::decodeCommand(Cdl5::command(14)), "invalid duration rejected");
     verify<500>(); verify<450>();
-    std::cout << "PASS both FPGA geometries, FP32, prototype/retry and chunk boundaries\n";
+    std::cout << "PASS both FPGA geometries, FP32, prototype/retry, chunks and coalesced batches\n";
 }

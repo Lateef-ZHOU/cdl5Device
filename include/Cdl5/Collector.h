@@ -38,7 +38,9 @@ private:
         : DAQCollector(std::move(context)), seconds_(std::clamp(seconds, 1, Cdl5::MaxAccumSeconds)) {}
     void onFeed(const QByteArray &bytes, RxTime at) override
     {
-        if (bytes.isEmpty() || bytes.size() > Cdl5::ChunkBytes || bytes.size() % Cdl5::RecordBytes != 0)
+        // DMA emits at most ChunkBytes; receive offload can coalesce several chunks.
+        // Validate record alignment and remaining frame capacity, not the send chunk size.
+        if (bytes.isEmpty() || bytes.size() % Cdl5::RecordBytes != 0)
             return;
         qsizetype offset = 0;
         if (!headerReceived_) {

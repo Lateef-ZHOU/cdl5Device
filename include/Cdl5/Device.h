@@ -9,7 +9,7 @@
 #include <Acquisition/AcqSaver.h>
 #include "Collector.h"
 
-using Cdl5ActiveCollector = Cdl5FourKCollector; // 4 kHz: 500 gates x 128 bins.
+using Cdl5ActiveCollector = Cdl5FiveKCollector; // Active board frame: 450 gates x 128 bins.
 
 // Desktop endpoint is UDP only. Linux DMA belongs to the board-side bridge.
 class Cdl5Device final

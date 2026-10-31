@@ -1,5 +1,18 @@
 # 验证记录
 
+## 2026-10-31：真实抓包诊断与接收修复（用户定）
+
+Windows 无谱时，在用户发起的采集中被动抓包，并只读核对板卡寄存器。捕获到两帧、518 个上行数据报：514 个 7168 字节、2 个 1024 字节、2 个 32 字节。每帧 1,843,232 字节，帧头为 450×128/Profile 8/周期 50000；寄存器 FRAME_WORDS=0x70808、Geometry=0x8501C280、Period=0xC350 一致。此前“尚未换 FPGA”的描述不能替代活动数据规格；用户据此确认 Windows 按实际 450×128 接收，不修改板卡。
+
+两个拒收点分别是 Collector 的 1024 字节上限及 500×128 形状检查。去掉接收块长上限，保留非空、32 字节对齐、帧头及剩余容量检查；默认类型改为 Cdl5FiveKCollector。DMA 仍每次最多交付 1024 字节、Bridge 仍原样转发。Windows 网卡开启接收合并，7168=7×1024，与接收卸载的行为一致；没有修改网卡配置，也未在板端另抓线上包。
+
+- Windows Release 增量构建及单头编译通过，无 C++ 警告；CTest 3/3、qmllint 通过。新增两规格的 7168 字节合并批次、未对齐拒收、超出剩余容量拒收、缺尾不完成及最终完整数值一致性验证。
+- 真实以太帧离线回放经过生产 PcapProtocol::kindOf / UDPDatagram::bodyView / Collector，准确完成两帧、三路各 57,600 点。六份结果逐点与 Python 独立小端 FP32 解码后转 double 的值比较，全部一致且非零；没有拆分合并批次再喂入。
+- ArchHFNL 增量构建及 CTest 6/6 通过，含生产消费/三路保存链和 DMA 模拟系统调用回归。仍不代表实际 DMA/网络永久无损，也不代替更新主程序后的用户现场验收。
+- 本地证据：out/cdl5-live-windows.pcapng、out/board-live-diagnosis.txt、out/capture-replay/replay.log、out/build-coalesced.log、out/test-coalesced.log、out/lint-coalesced.log。Linux：~/.cache/cdl5Device-20261031/out/build-coalesced.log、test-coalesced.log。现场数据和一次性回放程序留在被忽略的 out，不进入仓库。
+
+未操作 FPGA、板卡服务、SD 镜像或 eMMC；未改变 HandleCore、BridgeCore、重试和取消链。仅本地提交，不推送。
+
 ## 2026-10-31：按实物确认切回 4 kHz（用户定）
 
 用户确认尚未更换 FPGA 逻辑，板卡仍为 4 kHz。只将 Cdl5ActiveCollector 改为 Cdl5FourKCollector（500×128）；三路收集长度、页面尺寸和保存点数由同一类型导出，不修改协议、Handle、DMA 或 Bridge。之前的 5 kHz 实物判断撤回，两个规格类型均保留。

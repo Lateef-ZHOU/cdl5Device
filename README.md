@@ -2,7 +2,7 @@
 
 CDL5 采集卡官邸：桌面只使用 UDP；Linux 板端由 DMA Handle 接入 FPGA，BridgeCore 只转发字节。一个设备产生 ADC0、ADC1、ADC2 三路独立功率谱。
 
-2026-10-31：已实现 DMA 启动/等待/读取/取消、顺序 Collector、三路功率谱 QML 页面及独立落盘。风速/CNR 和风廓线等待中频与距离门标定确认，未套用国实卡换算。用户确认板卡逻辑仍为 4 kHz，Windows 主程序使用 500×128 规格；板端桥接服务已部署。测试通过不代表实际 FPGA 采集已经验证。
+2026-10-31：已实现 DMA 启动/等待/读取/取消、顺序 Collector、三路功率谱 QML 页面及独立落盘。风速/CNR 和风廓线等待中频与距离门标定确认，未套用国实卡换算。实测帧头及只读寄存器为 Profile 8、450×128，用户确认 Windows 按实际数据接收。已回放两帧真实抓包并核对三路数值；这不代替更新后主程序的现场操作验收。
 
 ## 模块与构建
 
@@ -41,7 +41,7 @@ QML 导入 `Lidar.Cdl5` 并装配 `Cdl5Module`。页面独持精确 C++ 后端�
 
 连接只选择本机网卡，其余型号参数在 C++：Windows 192.168.1.102:55200，板端 192.168.1.11:55200。三张图均用距离门/频点下标，不冒充物理距离或风速。Z 范围初始 0/0 自动全范围；按原谱显示，只有绘图器才钳制。
 
-`Device.h` 的 Cdl5ActiveCollector 当前使用 Cdl5FourKCollector，即 500 门 ×128 频点。用户确认更换为 5 kHz FPGA 后，再改用 Cdl5FiveKCollector（450 门）；谱尺寸、收齐长度和图窗规格都来自该类型。两种 Collector 均已验证，切换不修改 Handle 或 Bridge。
+`Device.h` 的 Cdl5ActiveCollector 当前使用 Cdl5FiveKCollector，即 450 门 ×128 频点，与实测帧头一致；谱尺寸、收齐长度和图窗规格都来自该类型。Cdl5FourKCollector（500 门）仍保留，今后以实际帧头及用户确认切换，不仅凭交付包名称判断。两种 Collector 均已验证，切换不修改 Handle 或 Bridge。
 
 完成一次采集，处理线程独立发出三路 spectrumReady；启用保存时通过现有 AcqSaver 写入：
 
@@ -61,6 +61,7 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 - DMA 读取整帧所需的传输长度来自 REG_FRAME_WORDS，累积计数由当前活动触发周期计算；不改变触发频率、光源、通道映射或距离模式。
 - 一帧一次 START，先准备 DMA 再触发 FPGA。WAIT_KEEP 短等待，完成后 rewind/read，每次交付最多 1024 字节自有 QByteArray，尾包交实际剩余字节。
 - 第一包含 32 字节整帧头；随后每条 32 字节，前三个小端 FP32 分别转成 double，无符号整数仅用来读取位型。元信息不参与重排或去重。
+- 1024 字节是 DMA 发送块长。Windows 抓包可见 7168 字节合并批次，接收按 32 字节对齐及整帧剩余容量校验，不要求一包最多 1024 字节，也不新增接收端拆包拷贝。
 - 接收策略按本轮用户裁定：假定完整数据按顺序交付；缺包不判齐，由现有看门狗重试。不能检测 UDP 重复/乱序或重试旧包，不能宣称网络无损。
 - DMA 突发发送必须先有对端 MAC；Bridge 的 cdl5Device 入口要求 --dstMac，避免已有 Pcap 的 ARP 等待单包槽覆盖前面的谱包。
 
@@ -68,7 +69,7 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 
 [VALIDATION.md](VALIDATION.md) 记录 Windows、Linux、ARM64 结果和实测边界。测试替换系统调用/抓包接口，实际 Handle、Collector、Device 消费链保持生产实现。`tests/build-arm.sh` 使用现有板卡 SDK 构建测试，不安装应用、不重打镜像。
 
-后续：先使用当前 4 kHz 板卡联调真实三路原谱；中频/距离门明确后接三路风速/CNR 和风廓线。4 kHz 默认距离门并非等间距，不能直接套用现有统一门距算法。
+后续：使用当前实测 450×128 数据继续主程序现场联调；中频/距离门明确后接三路风速/CNR 和风廓线。两种规格的距离映射须分别确认，不能直接套用现有统一门距算法。
 
 ## 许可与发布
 
