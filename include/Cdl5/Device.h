@@ -36,7 +36,7 @@ public:
     }
     ~Cdl5Device() override { PreDestruction(); }
     QVariantMap connectionParameters() const
-    { return PcapForm::connectionParameters("192.168.1.102", 55200, "192.168.1.11", 55200, std::nullopt); }
+    { return PcapForm::connectionParameters("192.168.100.200", 55200, "192.168.100.100", 55200, std::nullopt); }
     QVariantMap acquisitionParameters() const
     {
         return {{"accumMin", 1}, {"accumMax", Cdl5::MaxAccumSeconds}, {"accumDefault", 1},
@@ -51,7 +51,7 @@ public Q_SLOTS:
     bool open(int interfaceIndex)
     {
         const auto params = PcapForm::parseParameters(device().logSource(), interfaceIndex,
-            "192.168.1.102", 55200, "192.168.1.11", 55200, std::nullopt,
+            "192.168.100.200", 55200, "192.168.100.100", 55200, std::nullopt,
             kPcapReadTimeout, kPcapKernelBufferBytes);
         return params && device().open(*params);
     }
