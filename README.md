@@ -73,4 +73,4 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 
 ## 许可与发布
 
-仍为本地仓库，未创建远端或推送。DMA 资源、采集与相关测试保留 GPL-2.0 来源标记；HandleCore 等依赖各自许可不变。整体发布许可仍待确认，不自动沿用其他官邸 MIT。仓库不包含厂商交付包、内核镜像或运行库。
+公开源码仓库：https://github.com/Lateef-ZHOU/cdl5Device 。DMA 资源、采集与相关测试保留 GPL-2.0 来源标记；HandleCore 等依赖各自许可不变。整体许可后续整理，不自动沿用其他官邸 MIT。仓库不包含厂商交付包、内核镜像或运行库；DMA 构建仍须显式提供 DmaProxy 共享接口头的目录。
