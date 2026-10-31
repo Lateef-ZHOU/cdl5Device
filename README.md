@@ -2,7 +2,7 @@
 
 CDL5 采集卡官邸：桌面只使用 UDP；Linux 板端由 DMA Handle 接入 FPGA，BridgeCore 只转发字节。一个设备产生 ADC0、ADC1、ADC2 三路独立功率谱。
 
-2026-10-31：已实现 DMA 启动/等待/读取/取消、顺序 Collector、三路功率谱 QML 页面及独立落盘。风速/CNR 和风廓线等待中频与距离门标定确认，未套用国实卡换算。主程序尚未装配该页面，板卡服务尚未替换；测试通过不代表实际 FPGA 采集已经验证。
+2026-10-31：已实现 DMA 启动/等待/读取/取消、顺序 Collector、三路功率谱 QML 页面及独立落盘。风速/CNR 和风廓线等待中频与距离门标定确认，未套用国实卡换算。Windows 主程序接入时使用当前板卡的 5 kHz、450×128 规格；板端桥接服务已部署。测试通过不代表实际 FPGA 采集已经验证。
 
 ## 模块与构建
 
@@ -41,7 +41,7 @@ QML 导入 `Lidar.Cdl5` 并装配 `Cdl5Module`。页面独持精确 C++ 后端�
 
 连接只选择本机网卡，其余型号参数在 C++：Windows 192.168.1.102:55200，板端 192.168.1.11:55200。三张图均用距离门/频点下标，不冒充物理距离或风速。Z 范围初始 0/0 自动全范围；按原谱显示，只有绘图器才钳制。
 
-`Device.h` 的 Cdl5ActiveCollector 当前为 500 门 ×128 频点。替换为 5 kHz FPGA 后，桌面将该类型参数改成 450 即可；谱尺寸、收齐长度和图窗规格都来自它。两种 Collector 均已验证。板端和 Bridge 不硬编码这两种尺寸。
+`Device.h` 的 Cdl5ActiveCollector 当前使用 Cdl5FiveKCollector，即 450 门 ×128 频点，对齐已核实的板卡活动配置。若换回 4 kHz 500 门规格，改用 Cdl5FourKCollector；谱尺寸、收齐长度和图窗规格都来自该类型。两种 Collector 均已验证，切换不修改 Handle 或 Bridge。
 
 完成一次采集，处理线程独立发出三路 spectrumReady；启用保存时通过现有 AcqSaver 写入：
 
@@ -68,7 +68,7 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 
 [VALIDATION.md](VALIDATION.md) 记录 Windows、Linux、ARM64 结果和实测边界。测试替换系统调用/抓包接口，实际 Handle、Collector、Device 消费链保持生产实现。`tests/build-arm.sh` 使用现有板卡 SDK 构建测试，不安装应用、不重打镜像。
 
-后续：先部署单一 DMA 所有者并联调 4 kHz；再换 5 kHz 验证硬件；中频/距离门明确后接三路风速/CNR 和风廓线。4 kHz 默认距离门并非等间距，不能直接套用现有统一门距算法。
+后续：使用当前 5 kHz 板卡联调真实三路原谱；中频/距离门明确后接三路风速/CNR 和风廓线。4 kHz 默认距离门并非等间距，不能直接套用现有统一门距算法。
 
 ## 许可与发布
 

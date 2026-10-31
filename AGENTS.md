@@ -1,6 +1,6 @@
 # cdl5Device 维护入口
 
-2026-10-31 用户定：已实现 Linux DMA 采集端和 UDP 桌面官邸，Bridge 负责原样转发。Collector 顺序追加三路 FP32→double，不看逐元素 meta。当前先接三路原谱/保存；风速、CNR、风廓线待标定确认。不推送、不接入主程序、不改板卡服务、镜像或 eMMC。
+2026-10-31 用户定：已实现 Linux DMA 采集端和 UDP 桌面官邸，Bridge 负责原样转发。Collector 顺序追加三路 FP32→double，不看逐元素 meta。当前先接三路原谱/保存；风速、CNR、风廓线待标定确认。Windows 主程序本轮接入该 DAQ 官邸，默认规格对齐板卡当前 5 kHz Profile8、450×128；4 kHz 500×128 类型与验证保留。板端桥接服务已在上一轮部署，本轮不改板卡、镜像或 eMMC；不推送。
 
 - 开始先核对 Git 状态，再读 README 与 VALIDATION。中文沟通和提交，不用 friend，不加状态缓存或薄转发。
 - UDP 直接用 HandleCore 的 PcapHandle；CMake 提供 Lidar::Cdl5Udp，不新写重复 Handle 类。

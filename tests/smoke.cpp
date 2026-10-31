@@ -7,7 +7,8 @@
 #include <memory>
 #include <QPointer>
 #include <QTimer>
-#include "Device/Base/DeviceBase.h"
+#include <Cdl5/Device.h>
+static_assert(std::derived_from<Cdl5Device, DAQDeviceBase> && !std::is_abstract_v<Cdl5Device>);
 Q_IMPORT_QML_PLUGIN(LidarUIPlugin)
 Q_IMPORT_QML_PLUGIN(LidarChartsPlugin)
 Q_IMPORT_QML_PLUGIN(LidarTaskUIPlugin)
@@ -36,6 +37,12 @@ int main(int argc, char **argv)
             }
         }
         if (backends != 1 || backend->parent() != page.get()) return 5;
+        auto *card = qobject_cast<DAQDeviceBase *>(backend);
+        if (!card || page->property("family").value<DAQDeviceBase *>() != card) return 7;
+        const auto prototype = card->collectorFor(1, {});
+        if (!std::dynamic_pointer_cast<const Cdl5ActiveCollector>(prototype) || prototype->settled()) return 8;
+        if (card->begin(prototype, [](auto) {}, {})) return 9; // Offline admission must reject, without starting hardware.
+        card->stop({});
         const QPointer<QObject> lifetime(backend);
         QTimer::singleShot(8000, &app, &QCoreApplication::quit);
         app.exec();

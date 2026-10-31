@@ -9,7 +9,7 @@
 #include <Acquisition/AcqSaver.h>
 #include "Collector.h"
 
-using Cdl5ActiveCollector = Cdl5Collector<500>; // P9: 500; switching to P8 only changes this to 450.
+using Cdl5ActiveCollector = Cdl5FiveKCollector; // Current board: P8, 450 gates x 128 bins.
 
 // Desktop endpoint is UDP only. Linux DMA belongs to the board-side bridge.
 class Cdl5Device final

@@ -29,12 +29,13 @@ int main(int argc,char **argv)
     p.hostIPv4=IPv4::fromString("192.0.2.1",ok);p.deviceIPv4=IPv4::fromString("192.0.2.2",ok);
     p.hostPort=55200;p.devicePort=55200;
     Cdl5Device backend(nullptr);
+    constexpr auto points = Cdl5ActiveCollector::Points;
     check(backend.device().open(p),"open UDP backend");
     until([&] { return backend.device().isOpen(); });
     int signals=0;
     QObject::connect(&backend,&Cdl5Device::spectrumReady,&app,[&](int channel,const QVector<double> &values) {
         check(QThread::currentThread()==app.thread(),"plot data delivered to main thread");
-        check(values.size()==64000&&values.front()==channel+1.25&&values.back()==channel+1.25,"three independent spectra");
+        check(values.size()==points&&values.front()==channel+1.25&&values.back()==channel+1.25,"three independent spectra");
         ++signals;
     });
     bool completed=false;
@@ -43,10 +44,10 @@ int main(int argc,char **argv)
     check(backend.begin(prototype,[&](std::shared_ptr<const DAQCollector> frame) { completed=bool(frame); },{}),"begin typed collection");
     const auto sent=FakePcap::sent();
     check(!sent.empty()&&UDPDatagram(sent.front().bytes).bodyView()==Cdl5::command(1),"collector command through Pcap");
-    QByteArray frame(64001*32,0);
+    QByteArray frame((points+1)*32,0);
     qToLittleEndian(Cdl5::FrameMagic,frame.data());qToLittleEndian(quint32(0x05040507),frame.data()+4);
-    qToLittleEndian(quint32((500<<16)|128),frame.data()+8);
-    for(int i=0;i<64000;++i) for(int c=0;c<3;++c)
+    qToLittleEndian(quint32((Cdl5ActiveCollector::Rows<<16)|Cdl5ActiveCollector::Columns),frame.data()+8);
+    for(qsizetype i=0;i<points;++i) for(int c=0;c<3;++c)
         qToLittleEndian(std::bit_cast<quint32>(float(c)+1.25f),frame.data()+(i+1)*32+c*4);
     const auto session=FakePcap::last();
     for(qsizetype offset=0;offset<frame.size();offset+=1024)
@@ -58,7 +59,7 @@ int main(int argc,char **argv)
         files.clear();QDirIterator it(output.path(),{"*.bin"},QDir::Files,QDirIterator::Subdirectories);
         while(it.hasNext()) files<<it.next();
         if(files.size()!=3) return false;
-        for(const auto &path:files) if(QFileInfo(path).size()!=64000*8) return false;
+        for(const auto &path:files) if(QFileInfo(path).size()!=points*8) return false;
         return true;
     });
     for(int channel=0;channel<3;++channel) {
@@ -66,7 +67,7 @@ int main(int argc,char **argv)
         for(const auto &path:files) if(QFileInfo(path).fileName().startsWith(QString("ADC%1_").arg(channel))) file=path;
         check(!file.isEmpty(),"per-channel filenames");QFile f(file);check(f.open(QIODevice::ReadOnly),"open result");
         const auto bytes=f.readAll();
-        for(qsizetype i=0;i<64000;++i)
+        for(qsizetype i=0;i<points;++i)
             check(std::bit_cast<double>(qFromLittleEndian<quint64>(bytes.constData()+i*8))==channel+1.25,"little-endian double saved intact");
     }
     backend.close();

@@ -1,5 +1,16 @@
 # 验证记录
 
+## 2026-10-31：Windows 主程序接入准备
+
+默认桌面 Collector 改为 Cdl5FiveKCollector（450×128），对齐上一轮板卡活动配置核查。Handle、DMA、协议和重试逻辑未改。
+
+- Windows Release 增量构建与单头编译通过，未见 C++ 编译警告；CTest 3/3，QML 冒烟运行 8 秒；LidarCdl5Device_qmllint 通过。
+- 页面验证新增 DAQ 族归属、唯一后端/页面所有权、只读具体 Collector 原型、离线启动拒绝和页面销毁释放检查。
+- ArchHFNL 同步本轮源代码后构建通过，CTest 6/6。生产 Device → Collector → consumeFrames 测试按当前 450×128 规格收齐三路数据、发出三个信号，并逐项核对三个落盘文件；每份 57,600 个小端 double（460,800 字节）。两个 Collector 规格的独立测试继续通过。
+- 证据：本机 out/build-windows-integration.log、out/lint-windows-integration.log、build-win/Testing/Temporary/LastTest.log；ArchHFNL ~/.cache/cdl5Device-20261031/out/build-windows-integration.log 与 build-linux/Testing/Temporary/LastTest.log。
+
+以上使用模拟抓包和系统调用，没有触发实际 FPGA 采集。主程序完整装配结果记在 LiDAR_DataACQ 的维护验证记录；本轮不更新板卡桥接器、不推送或发布 Release。
+
 ## 2026-10-31：三路原谱、UDP 官邸与 DMA 采集
 
 本轮新实现已经构建验证，尚未真实 FPGA 联调。未接入主程序，未安装新板端服务、改驱动/镜像或 eMMC；没有推送。
