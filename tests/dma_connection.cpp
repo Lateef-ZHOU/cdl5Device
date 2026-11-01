@@ -53,11 +53,11 @@ public:
     int closeCount = 0;
 private:
     QSemaphore wake;
-    void connectionChanged(bool value) override
+    void connectionChanged(HandleCore::ResourcePhase phase) override
     {
-        if (value)
+        if (phase == HandleCore::ResourcePhase::Acquired)
             connected.release();
-        else
+        else if (phase == HandleCore::ResourcePhase::AboutToRelease)
             ++closeCount;
     }
     void logMessage(const QString &) const override { ++const_cast<ProbeHandle *>(this)->errorCount; }

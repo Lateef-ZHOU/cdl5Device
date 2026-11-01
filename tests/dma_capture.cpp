@@ -9,7 +9,7 @@ int main(int argc,char **argv)
             chunks.push_back(bytes);
             if(chunks.size()==static_cast<size_t>(gates==500?2001:1801)) delivered.release();
         });
-        QObject::connect(&handle,&Cdl5DmaHandle::connectionChanged,&handle,[](bool on) { if(on)connected.release(); },Qt::DirectConnection);
+        QObject::connect(&handle,&Cdl5DmaHandle::connectionChanged,&handle,[](HandleCore::ResourcePhase phase) { if(phase == HandleCore::ResourcePhase::Acquired)connected.release(); },Qt::DirectConnection);
         QObject::connect(&handle,&Cdl5DmaHandle::logMessage,&handle,[](const QString &s) { ++logs;std::cerr<<s.toStdString()<<'\n'; },Qt::DirectConnection);
         auto params=Cdl5DmaHandle::parameters("/fake/dma");params.memoryDevice="/fake/mem";
         check(handle.start(params)&&connected.tryAcquire(1,2000),"open concrete DMA handle");
@@ -34,7 +34,7 @@ int main(int argc,char **argv)
     for(auto fail:{Fault::Start,Fault::Wait,Fault::Read,Fault::ShortTransfer}) {
         prepare(500);fault=fail;QSemaphore error;
         Cdl5DmaHandle handle([](const QByteArray &,RxTime) { check(false,"failed capture cannot upload"); });
-        QObject::connect(&handle,&Cdl5DmaHandle::connectionChanged,&handle,[](bool on) { if(on)connected.release(); },Qt::DirectConnection);
+        QObject::connect(&handle,&Cdl5DmaHandle::connectionChanged,&handle,[](HandleCore::ResourcePhase phase) { if(phase == HandleCore::ResourcePhase::Acquired)connected.release(); },Qt::DirectConnection);
         QObject::connect(&handle,&Cdl5DmaHandle::logMessage,&handle,[&](const QString &s) {
             if(s.startsWith("DMA")||s.startsWith("Unexpected")) error.release();
         },Qt::DirectConnection);

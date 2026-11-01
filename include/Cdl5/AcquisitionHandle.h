@@ -32,7 +32,7 @@ public:
     }
 Q_SIGNALS:
     void logMessage(const QString &message) const override;
-    void connectionChanged(bool connected) override;
+    void connectionChanged(HandleCore::ResourcePhase connected) override;
 
 private:
     using Clock = std::chrono::steady_clock;
@@ -68,7 +68,7 @@ private:
     }
     std::shared_ptr<DmaConnection> connOpen(const DmaParameters &params) override
     {
-        // Before Handle publishes the new connection or emits connectionChanged(true).
+        // Before Handle publishes the new connection or emits connectionChanged(Acquired).
         { const std::lock_guard lock(gate_); pending_.reset(); }
         if (params.registerBytes < Apply + sizeof(quint32) || params.registerBase % alignof(quint32)) {
             Q_EMIT logMessage(QStringLiteral("CDL5 寄存器映射范围或对齐错误"));

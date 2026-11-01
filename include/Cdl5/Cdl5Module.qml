@@ -99,9 +99,8 @@ ModulePage {
     objectName: "Cdl5Module"
     readonly property string name: internals.device.device.displayName
     readonly property string subtitle: internals.device.device.subtitle
-    readonly property bool isOpen: internals.device.device.isOpen
-    readonly property bool isLocked: internals.device.device.isLocked
-    readonly property string holder: internals.device.device.holder
+    // 借用公共只读资源接口，不暴露具体型号后端或缓存状态。
+    readonly property var deviceState: internals.device.device
 
 
     QtObject {

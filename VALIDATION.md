@@ -1,5 +1,10 @@
 # 验证记录
 
+## 2026-11-02：资源阶段通知（用户定）
+
+- DMA AcquisitionHandle 采用 ResourcePhase 信号；连接资源层/FPGA 配置/分块和接收逻辑不变，页面状态按完成事件读取已有 DeviceBase。
+- Linux ArchHFNL Qt Core 6.8.3 / GCC 16.2.1 独立 DMA 构建、公开头与 CTest 2/2 通过（系统调用替身：连接/采集）。证据 ~/resource-phase-20261102/cdl-{configure,build,test}.log。Windows 页面随主程序 Release 编译与装配验证，未操作板卡或重启服务。依赖仅本地固定，未推送。
+
 ## 2026-10-31：独立业务地址对照（用户定）
 
 - 默认 Windows 192.168.100.200 ↔ 板端 192.168.100.100，端口不变；仅修改型号构参，不改 Handle、Collector、分块或协议。无需将这两个地址配置到系统网卡。
