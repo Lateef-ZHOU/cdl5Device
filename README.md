@@ -2,7 +2,7 @@
 
 CDL5 采集卡官邸：桌面只使用 UDP；Linux 板端由 DMA Handle 接入 FPGA，BridgeCore 只转发字节。一个设备产生 ADC0、ADC1、ADC2 三路独立功率谱。
 
-2026-10-31：已实现 DMA 启动/等待/读取/取消、顺序 Collector、三路功率谱 QML 页面及独立落盘。风速/CNR 和风廓线等待中频与距离门标定确认，未套用国实卡换算。实测帧头及只读寄存器为 Profile 8、450×128，用户确认 Windows 按实际数据接收。已回放两帧真实抓包并核对三路数值；这不代替更新后主程序的现场操作验收。
+2026-10-31：已实现 DMA 启动/等待/读取/取消、顺序 Collector、三路功率谱 QML 页面及独立落盘。后续风测量接入见下文。实测帧头及只读寄存器为 Profile 8、450×128，用户确认 Windows 按实际数据接收。已回放两帧真实抓包并核对三路数值；这不代替更新后主程序的现场操作验收。
 
 ## 模块与构建
 
@@ -10,7 +10,7 @@ CDL5 采集卡官邸：桌面只使用 UDP；Linux 板端由 DMA Handle 接入 F
 |---|---|---|
 | CDL5_WITH_UDP | Lidar::Cdl5Udp | 复用 PcapHandle，Windows/Linux |
 | CDL5_WITH_DMA | Lidar::Cdl5Dma | Linux Cdl5DmaHandle，Qt Core，无 QML |
-| CDL5_WITH_DEVICE | Lidar::Cdl5Device | UDP 官邸、Collector、三张 SurfaceView，自动开启 UDP |
+| CDL5_WITH_DEVICE | Lidar::Cdl5Device | UDP 官邸、Collector、三路原谱和非均匀风图，自动开启 UDP |
 
 C++20、CMake >=3.28。传输层 Qt Core >=6.8.3；桌面模块 Qt >=6.11.2、Quick/Qml/GuiPrivate/ShaderTools。UDP 需要 libpcap >=1.10.0，Windows 使用 Npcap。DMA 共享 ioctl 头通过 CDL5_DMA_PROXY_SOURCE_DIR 指向 DmaProxy，不复制或修改驱动 ABI。
 
@@ -39,7 +39,7 @@ Linux 桌面验证可以同时启用 CDL5_WITH_DEVICE。Windows 请求 DMA 时�
 
 QML 导入 `Lidar.Cdl5` 并装配 `Cdl5Module`。页面独持精确 C++ 后端，向任务提供 DAQ 族引用，保留族级锁、Collector 原型/重试、消费线程及取消链；不提供 DMA 枚举或 DMA 桌面页面。
 
-连接只选择本机网卡，其余型号参数在 C++：Windows 192.168.100.200:55200，板端 192.168.100.100:55200。三张图均用距离门/频点下标，不冒充物理距离或风速。Z 范围初始 0/0 自动全范围；按原谱显示，只有绘图器才钳制。
+连接只选择本机网卡，其余型号参数在 C++：Windows 192.168.100.200:55200，板端 192.168.100.100:55200。三张原谱均用距离门/频点下标，不冒充物理距离或风速。Z 范围初始 0/0 自动全范围；按原谱显示，只有绘图器才钳制。
 
 `Device.h` 的 Cdl5ActiveCollector 当前使用 Cdl5FiveKCollector，即 450 门 ×128 频点，与实测帧头一致；谱尺寸、收齐长度和图窗规格都来自该类型。Cdl5FourKCollector（500 门）仍保留，今后以实际帧头及用户确认切换，不仅凭交付包名称判断。两种 Collector 均已验证，切换不修改 Handle 或 Bridge。
 
@@ -69,7 +69,7 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 
 [VALIDATION.md](VALIDATION.md) 记录 Windows、Linux、ARM64 结果和实测边界。测试替换系统调用/抓包接口，实际 Handle、Collector、Device 消费链保持生产实现。`tests/build-arm.sh` 使用现有板卡 SDK 构建测试，不安装应用、不重打镜像。
 
-后续：使用当前实测 450×128 数据继续主程序现场联调；中频/距离门明确后接三路风速/CNR 和风廓线。两种规格的距离映射须分别确认，不能直接套用现有统一门距算法。
+当前 Windows 程序使用实测 450×128 规格。物理风速的现场验收需要逐 ADC 确认零风速参考频率。
 
 ## 许可与发布
 
@@ -78,3 +78,9 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 ## 资源阶段通知（2026-11-02）
 
 连接采用 HandleCore 的 `connectionChanged(ResourcePhase)`；主动关闭前在所属线程同步发 `AboutToRelease`，完成事件用于回读现状。页面借出已有 `deviceState` 机制对象，不再保存 isOpen/isLocked/holder 的 QML 转交属性；标签通过连接/锁完成阶段回读，不恢复通用 statusChanged。固定依赖已同步；本轮提交尚未推送，验证使用显式本地源码覆盖。
+
+## 三路 ADC 的风测量
+
+每个 ADC 标签内有功率谱、径向风速/CNR、风廓线三个常驻图窗。距离以交付上位机 frame_decoder.py 的 gate_distance_m 为准，以每门起点为坐标。P8 混合模式前 200 门从 0 m 起每 15 m，接下来的 150 门从 3000 m 起每 60 m，最后 100 门从 12000 m 起每 150 m。帧头 word7 的 range_mode 置位时按 60 m 等间隔处理。P9 混合模式最后有 150 门。
+
+工作线程逐通道拟合谱峰。CNR 不依赖零风速频率。风速换算使用帧头 word4 的起始 bin、500 MSPS、512 点 FFT 和 1550 nm 波长。程序启动时从 exe 旁的 cdl5-wind.ini 读取 [wind] 节的 ADC0、ADC1、ADC2（MHz）。未填写或参考频率超出本帧频带时，该通道仅显示 CNR，风速缺测。每路独立使用四束实测朝向，在任务同步点求 ENU，按逐门斜距乘平均仰角的正弦生成高度。无朝向、未凑齐四束或几何退化时不产生风廓线。勾选保存后使用 AcqSaver 的非均匀接口保存已标定通道及真实 Range/High。

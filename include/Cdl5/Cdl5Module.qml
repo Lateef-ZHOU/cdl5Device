@@ -18,46 +18,81 @@ ModulePage {
     sections: [connectionSection, acquisitionSection].filter(item => item !== null)
     // 界面只选择本机网卡；其他连接参数固定在型号配置中。
     property int networkInterfaceIndex: internals.connectionParameters.networkInterfaceDefault
-    mainPages: [
-        Page {
-            title: qsTr("ADC0 功率谱 3D")
-            contentItem: SurfaceView {
-                id: surface0
-                specification: internals.chartParameters
-                Connections {
-                    target: internals.device
-                    function onSpectrumReady(channel, values) {
-                        if (channel === 0) surface0.updateSpectrum(values)
+    component ChannelPage: Page {
+        id: adc
+        required property int channel
+        required property Cdl5Device backend
+        required property var spec
+        title: qsTr("ADC%1").arg(channel)
+        contentItem: TabPane {
+            pages: [
+                Page {
+                    title: qsTr("功率谱 3D")
+                    contentItem: SurfaceView {
+                        id: surface
+                        specification: adc.spec
+                    }
+                },
+                Page {
+                    title: qsTr("径向风速 / CNR")
+                    contentItem: ColumnLayout {
+                        Label {
+                            id: radialNote
+                            Layout.fillWidth: true
+                            text: qsTr("等待接收功率谱")
+                            wrapMode: Text.Wrap
+                        }
+                        NonuniformWind2DView {
+                            id: radial
+                            objectName: "radialADC" + adc.channel
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            specification: ({windMin: -60, windMax: 60, cnrMin: -50, cnrMax: 50,
+                                             rangeMinimum: 0, rangeMaximum: 27000})
+                        }
+                    }
+                },
+                Page {
+                    title: qsTr("风廓线")
+                    contentItem: ColumnLayout {
+                        Label {
+                            id: profileNote
+                            Layout.fillWidth: true
+                            text: qsTr("等待已标定的四束采集结果")
+                        }
+                        NonuniformWindBarbItem {
+                            id: barbs
+                            objectName: "barbsADC" + adc.channel
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1, maxHeight: 27000})
+                        }
                     }
                 }
+            ]
+        }
+        Connections {
+            target: adc.backend
+            function onSpectrumReady(channel, values) {
+                if (channel === adc.channel) surface.updateSpectrum(values)
             }
-        },
-        Page {
-            title: qsTr("ADC1 功率谱 3D")
-            contentItem: SurfaceView {
-                id: surface1
-                specification: internals.chartParameters
-                Connections {
-                    target: internals.device
-                    function onSpectrumReady(channel, values) {
-                        if (channel === 1) surface1.updateSpectrum(values)
-                    }
-                }
+            function onRadialReady(channel, ranges, speeds, cnr, calibrated) {
+                if (channel !== adc.channel) return
+                radial.updateWS(ranges, speeds)
+                radial.updateCNR(ranges, cnr)
+                radialNote.visible = !calibrated
+                if (!calibrated)
+                    radialNote.text = qsTr("CNR 已更新。风速需在 cdl5-wind.ini 填入谱带内的零风速参考频率。")
             }
-        },
-        Page {
-            title: qsTr("ADC2 功率谱 3D")
-            contentItem: SurfaceView {
-                id: surface2
-                specification: internals.chartParameters
-                Connections {
-                    target: internals.device
-                    function onSpectrumReady(channel, values) {
-                        if (channel === 2) surface2.updateSpectrum(values)
-                    }
-                }
+            function onProfileReady(channel, frame) {
+                if (channel === adc.channel && barbs.appendColumn(frame)) profileNote.visible = false
             }
         }
+    }
+    mainPages: [
+        ChannelPage { channel: 0; backend: internals.device; spec: internals.chartParameters },
+        ChannelPage { channel: 1; backend: internals.device; spec: internals.chartParameters },
+        ChannelPage { channel: 2; backend: internals.device; spec: internals.chartParameters }
     ]
     readonly property Section connectionSection: Section {
         title: qsTr("设备连接")

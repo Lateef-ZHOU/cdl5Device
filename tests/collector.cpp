@@ -1,4 +1,7 @@
 #include <Cdl5/Collector.h>
+#include <Cdl5/WindProcessing.h>
+#include <QFile>
+#include <numbers>
 #include <cstdlib>
 #include <iostream>
 #include <type_traits>
@@ -62,7 +65,7 @@ template<int Gates> void verify()
     check(coalesced->constFrame() == result->constFrame() && coalesced->frameTime() == stamp,
           "coalescing preserves every ADC value and first arrival time");
 }
-int main()
+int main(int argc, char **argv)
 {
     static_assert(std::is_same_v<decltype(Cdl5FourKCollector::createPrototype(1, {})), std::shared_ptr<const Cdl5FourKCollector>>);
     const auto unaligned = QByteArray::fromHex("780000a03f");
@@ -70,5 +73,36 @@ int main()
     check(Cdl5::command(2).toHex() == "43444c3502000000", "command wire bytes");
     check(!Cdl5::decodeCommand(Cdl5::command(14)), "invalid duration rejected");
     verify<500>(); verify<450>();
+    const auto ranges = Cdl5::gateRanges(8, false, 450);
+    check(ranges.size() == 450 && ranges[199] == 2985 && ranges[200] == 3000
+          && ranges[349] == 11940 && ranges[350] == 12000 && ranges.last() == 26850,
+          "Profile 8 mixed gate origins match host coordinates");
+    check(Cdl5::gateRanges(8, true, 450).last() == 26940 && Cdl5::gateRanges(1, false, 450).isEmpty(),
+          "frame-selected uniform mode and unsupported profile");
+    QVector<double> peak(128);
+    for (int i = 0; i < 128; ++i) peak[i] = 2 + 30 * std::exp(-0.5 * std::pow((i - 68) / 3.0, 2));
+    const auto [wind, valid] = Cdl5::radial(peak, 1, 128, 15, 80.0);
+    const auto [uncal, absent] = Cdl5::radial(peak, 1, 128, 15, std::nullopt);
+    check(valid && !absent && std::abs(wind.ws.front() - (83 * 500.0 / 512 - 80) * 0.775) < 0.02
+          && std::isnan(uncal.ws.front()) && wind.cnr.front() == uncal.cnr.front()
+          && std::abs(wind.cnr.front() - 10 * std::log10(std::sqrt(2 * std::numbers::pi) * 90 / 256)) < 0.02,
+          "known peak, real bin offset, missing reference still produces identical CNR");
     std::cout << "PASS both FPGA geometries, FP32, prototype/retry, chunks and coalesced batches\n";
+    for (int i = 1; i < argc; ++i) {
+        QFile file(QString::fromLocal8Bit(argv[i]));
+        check(file.open(QIODevice::ReadOnly), "open captured frame");
+        const auto collector = Cdl5FiveKCollector::createPrototype(1, {})->makeSelf();
+        while (!file.atEnd()) collector->feed(file.read(7168), {});
+        check(collector->settled() && collector->profile() == 8, "captured Profile 8 frame");
+        const auto physical = Cdl5::gateRanges(collector->profile(), collector->uniformRange(), collector->Rows);
+        for (const auto &spectrum : collector->constFrame()) {
+            const auto [measured, configured] = Cdl5::radial(spectrum, collector->Rows, collector->Columns,
+                                                              collector->firstBin(), {});
+            check(!configured && measured.cnr.size() == physical.size()
+                  && std::ranges::any_of(measured.cnr, [](double v) { return std::isfinite(v); }),
+                  "real spectrum produces CNR without inventing a calibrated velocity");
+        }
+        std::cout << "Replay: 3 ADCs x " << physical.size() << " gates, first bin " << collector->firstBin()
+                  << ", range " << physical.first() << ".." << physical.last() << " m\n";
+    }
 }

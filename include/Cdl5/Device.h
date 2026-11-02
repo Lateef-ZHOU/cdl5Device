@@ -8,6 +8,7 @@
 #include <Device/PcapForm.h>
 #include <Acquisition/AcqSaver.h>
 #include "Collector.h"
+#include "WindProcessing.h"
 
 using Cdl5ActiveCollector = Cdl5FiveKCollector; // Active board frame: 450 gates x 128 bins.
 
@@ -47,6 +48,9 @@ public:
               {"powerMax", static_cast<double>(std::numeric_limits<float>::max())}}; }
 Q_SIGNALS:
     void spectrumReady(int channel, const QVector<double> &values);
+    void radialReady(int channel, const QVector<double> &ranges, const QVector<double> &speeds,
+                     const QVector<double> &cnr, bool calibrated);
+    void profileReady(int channel, NonuniformVerticalWindProfilePtr profile);
 public Q_SLOTS:
     bool open(int interfaceIndex)
     {
@@ -67,16 +71,47 @@ private:
     }
     void run() override
     {
-        consumeFrames([this](const std::shared_ptr<const Cdl5ActiveCollector> &frame) {
+        using BeamRing = std::array<WindProfile::Input, WindProfile::kBeams>;
+        consumeFrames([this, reference = Cdl5::readReferenceMHz(), beams = std::array<BeamRing, 3>{},
+                       lastRanges = QVector<double>{}, lastBin = -1, cursor = 0]
+                      (const std::shared_ptr<const Cdl5ActiveCollector> &frame) mutable {
             if (!frame || !frame->settled()) return;
             const auto &context = frame->context();
+            const auto ranges = Cdl5::gateRanges(frame->profile(), frame->uniformRange(), frame->Rows);
+            if (ranges != lastRanges || frame->firstBin() != lastBin || !context.pose) {
+                beams = {};
+                cursor = 0;
+                lastRanges = ranges;
+                lastBin = frame->firstBin();
+            }
+            QVector<AcqSaver::NonuniformRadialChannel> channels;
             for (int channel = 0; channel != 3; ++channel) {
                 const auto &values = frame->constFrame()[channel];
+                const auto tag = QString("ADC%1").arg(channel);
                 Q_EMIT spectrumReady(channel, values);
                 if (context.saveRoot)
                     AcqSaver::saveSpec(*context.saveRoot, context.sessionDir,
-                        AcqSaver::fileStem(frame->frameTime()), values, QString("ADC%1").arg(channel));
+                        AcqSaver::fileStem(frame->frameTime()), values, tag);
+                if (ranges.isEmpty()) continue;
+                auto [radial, calibrated] = Cdl5::radial(values, frame->Rows, frame->Columns,
+                                                        frame->firstBin(), reference[channel]);
+                Q_EMIT radialReady(channel, ranges, radial.ws, radial.cnr, calibrated);
+                if (!calibrated) continue;
+                beams[channel][cursor] = {context.pose, radial.ws};
+                if (context.saveRoot) channels.append({tag, ranges, radial});
+                if (context.sync) {
+                    const auto profile = WindProfile::Calc(beams[channel], ranges, frame->frameTime());
+                    if (profile) {
+                        Q_EMIT profileReady(channel, profile);
+                        if (context.saveRoot)
+                            AcqSaver::saveWindProfile(profile, *context.saveRoot, context.sessionDir, tag);
+                    }
+                }
             }
+            cursor = (cursor + 1) % WindProfile::kBeams;
+            if (!channels.isEmpty())
+                AcqSaver::saveRadialWind(*context.saveRoot, context.sessionDir, AcqSaver::fileStem(frame->frameTime()),
+                                         AcqSaver::timeStem(frame->frameTime()), std::move(channels));
         });
     }
 };

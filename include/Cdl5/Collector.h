@@ -28,6 +28,9 @@ public:
         return result;
     }
     const Frame &constFrame() const noexcept { return frame_; }
+    int profile() const noexcept { return (binConfig_ >> 12) & 15; }
+    int firstBin() const noexcept { return binConfig_ & 0x1ff; }
+    bool uniformRange() const noexcept { return uniformRange_; }
     bool settled() const override { return frame_[0].size() == Points; }
     int timeoutMs() const override { return (seconds_ + 5) * 1000; }
     QVector<QByteArray> buildStart() const override { return {Cdl5::command(static_cast<quint32>(seconds_))}; }
@@ -53,12 +56,19 @@ private:
         }
         const auto count = (bytes.size() - offset) / Cdl5::RecordBytes;
         if (count > Points - frame_[0].size()) return;
-        if (!headerReceived_) { headerReceived_ = true; frameTime_ = at; }
+        if (!headerReceived_) {
+            binConfig_ = Cdl5::word(bytes.constData() + 16);
+            uniformRange_ = (Cdl5::word(bytes.constData() + 28) >> 31) != 0;
+            headerReceived_ = true;
+            frameTime_ = at;
+        }
         for (; offset < bytes.size(); offset += Cdl5::RecordBytes)
             for (int channel = 0; channel != 3; ++channel)
                 frame_[channel].append(Cdl5::power(bytes.constData() + offset + channel * 4));
     }
     const int seconds_;
+    quint32 binConfig_ = 0;
+    bool uniformRange_ = false;
     bool headerReceived_ = false; // Distinguishes a header-only first datagram from no frame yet.
     Frame frame_;
 };
