@@ -63,11 +63,10 @@ auto makeCdl5Processor(Self *self)
 class Cdl5FourKCore final : public Device<PcapHandle, Cdl5Collector<Cdl5::FourK>>
 {
     Q_OBJECT
-    Q_PROPERTY(QString displayName READ displayName CONSTANT)
-    Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
+    Q_PROPERTY(QString displayName MEMBER displayName CONSTANT)
+    Q_PROPERTY(QString subtitle MEMBER subtitle CONSTANT)
     Q_PROPERTY(bool isOpen READ isOpen)
-    Q_PROPERTY(bool isLocked READ isLocked)
-    Q_PROPERTY(QString holder READ holder)
+    Q_PROPERTY(QVariant holder READ qmlHolder)
 public:
     using Device::Device;
     ~Cdl5FourKCore() override { PreDestruction(); }
@@ -81,11 +80,10 @@ private:
 class Cdl5FiveKCore final : public Device<PcapHandle, Cdl5Collector<Cdl5::FiveK>>
 {
     Q_OBJECT
-    Q_PROPERTY(QString displayName READ displayName CONSTANT)
-    Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
+    Q_PROPERTY(QString displayName MEMBER displayName CONSTANT)
+    Q_PROPERTY(QString subtitle MEMBER subtitle CONSTANT)
     Q_PROPERTY(bool isOpen READ isOpen)
-    Q_PROPERTY(bool isLocked READ isLocked)
-    Q_PROPERTY(QString holder READ holder)
+    Q_PROPERTY(QVariant holder READ qmlHolder)
 public:
     using Device::Device;
     ~Cdl5FiveKCore() override { PreDestruction(); }
@@ -99,11 +97,10 @@ private:
 class Cdl5TenKCore final : public Device<PcapHandle, Cdl5Collector<Cdl5::TenK>>
 {
     Q_OBJECT
-    Q_PROPERTY(QString displayName READ displayName CONSTANT)
-    Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
+    Q_PROPERTY(QString displayName MEMBER displayName CONSTANT)
+    Q_PROPERTY(QString subtitle MEMBER subtitle CONSTANT)
     Q_PROPERTY(bool isOpen READ isOpen)
-    Q_PROPERTY(bool isLocked READ isLocked)
-    Q_PROPERTY(QString holder READ holder)
+    Q_PROPERTY(QVariant holder READ qmlHolder)
 public:
     using Device::Device;
     ~Cdl5TenKCore() override { PreDestruction(); }

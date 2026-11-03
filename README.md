@@ -114,3 +114,9 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 ## 2026-11-04：设备日志直接接线（用户定）
 
 删除具体设备的 logSource 自引用属性，QML 直接监听现有设备对象的 logMessage/connectionChanged；设备失败日志直接调用继承自 Handle 的信号。协议、收发、重连和关闭顺序不变。 本轮仅本地整理，未推送；Windows 集成验证记录见主程序维护操作。
+
+## 2026-11-04：设备身份与占用查询（用户定）
+
+设备名称/副标题由构造传入 DeviceBase 的公开 const 成员，Qt 通过 MEMBER CONSTANT 直接暴露；占用查询只保留 holder，Qt 用无效 QVariant 表示空闲、字符串表示占用，删除 isLocked 属性。既有连接、重连、收发和取消逻辑保持。
+
+本轮仅本地整理；集成验证记录见主程序 docs/maintenance/validation.md，不推送。
