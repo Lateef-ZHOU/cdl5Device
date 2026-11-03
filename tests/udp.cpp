@@ -19,7 +19,6 @@ void check(bool condition, const char *message)
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
-    static_assert(std::is_same_v<PcapHandle::ParamType, PcapParams>);
     bool ok = false;
     const auto host = IPv4::fromString("192.0.2.1", ok);
     check(ok, "test host address");

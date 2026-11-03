@@ -62,19 +62,19 @@ private:
             ++closeCount;
     }
     void logMessage(const QString &) const override { ++const_cast<ProbeHandle *>(this)->errorCount; }
-    bool connLoop(std::shared_ptr<ConnType>, Sink) override
+    bool connLoop(std::shared_ptr<DmaConnection>, Sink) override
     {
         // 测试只驻留连接，不提交 DMA、不读写寄存器。
         wake.acquire();
         return true;
     }
-    void connBreak(std::shared_ptr<ConnType>) const override
+    void connBreak(std::shared_ptr<DmaConnection>) const override
     {
         const_cast<ProbeHandle *>(this)->wake.release();
     }
-    bool connSend(std::shared_ptr<ConnType>, const QByteArray &) const override { return false; }
-    RXRuling onRX(const QByteArray &, RxTime, std::shared_ptr<ConnType>) override { return {}; }
-    TXRuling onTX(const QByteArray &, std::shared_ptr<ConnType>) const override { return {}; }
+    bool connSend(std::shared_ptr<DmaConnection>, const QByteArray &) const override { return false; }
+    RXRuling onRX(const QByteArray &, RxTime, std::shared_ptr<DmaConnection>) override { return {}; }
+    TXRuling onTX(const QByteArray &, std::shared_ptr<DmaConnection>) const override { return {}; }
 };
 }
 
