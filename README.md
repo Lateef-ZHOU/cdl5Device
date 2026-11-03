@@ -110,3 +110,7 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 协议头使用 `Cdl5Protocol.h`，避免与其他设备的同名协议头冲突。
 
 目录整理验证（2026-11-03）：Windows：公开头独立编译、Collector 与页面测试 2/2 通过；Linux Qt Core 6.8.3：DMA 独立构建、CTest 2/2，BridgeCore 4/4 通过。本轮通过本地源码覆盖验证，固定依赖同步更新到本地提交；尚未推送，不代表已验证远端拉取。
+
+## 2026-11-04：设备日志直接接线（用户定）
+
+删除具体设备的 logSource 自引用属性，QML 直接监听现有设备对象的 logMessage/connectionChanged；设备失败日志直接调用继承自 Handle 的信号。协议、收发、重连和关闭顺序不变。 本轮仅本地整理，未推送；Windows 集成验证记录见主程序维护操作。

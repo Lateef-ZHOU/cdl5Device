@@ -133,7 +133,7 @@ ModulePage {
         readonly property Cdl5TenKDevice device: root.Cdl5TenKDevice
     }
     Connections {
-        target: internals.device.device.logSource
+        target: internals.device.device
         function onLogMessage(text): void { root.logMessage(text) }
     }
 }

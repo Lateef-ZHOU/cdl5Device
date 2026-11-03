@@ -65,7 +65,6 @@ class Cdl5FourKCore final : public Device<PcapHandle, Cdl5Collector<Cdl5::FourK>
     Q_OBJECT
     Q_PROPERTY(QString displayName READ displayName CONSTANT)
     Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
-    Q_PROPERTY(QObject *logSource READ logSourceObject CONSTANT)
     Q_PROPERTY(bool isOpen READ isOpen)
     Q_PROPERTY(bool isLocked READ isLocked)
     Q_PROPERTY(QString holder READ holder)
@@ -84,7 +83,6 @@ class Cdl5FiveKCore final : public Device<PcapHandle, Cdl5Collector<Cdl5::FiveK>
     Q_OBJECT
     Q_PROPERTY(QString displayName READ displayName CONSTANT)
     Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
-    Q_PROPERTY(QObject *logSource READ logSourceObject CONSTANT)
     Q_PROPERTY(bool isOpen READ isOpen)
     Q_PROPERTY(bool isLocked READ isLocked)
     Q_PROPERTY(QString holder READ holder)
@@ -103,7 +101,6 @@ class Cdl5TenKCore final : public Device<PcapHandle, Cdl5Collector<Cdl5::TenK>>
     Q_OBJECT
     Q_PROPERTY(QString displayName READ displayName CONSTANT)
     Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
-    Q_PROPERTY(QObject *logSource READ logSourceObject CONSTANT)
     Q_PROPERTY(bool isOpen READ isOpen)
     Q_PROPERTY(bool isLocked READ isLocked)
     Q_PROPERTY(QString holder READ holder)
@@ -144,7 +141,7 @@ public:
               {"powerMax", static_cast<double>(std::numeric_limits<float>::max())}}; }
     bool open(int interfaceIndex)
     {
-        const auto params = PcapForm::parseParameters(this->device().logSource(), interfaceIndex,
+        const auto params = PcapForm::parseParameters(this->device(), interfaceIndex,
             "192.168.100.200", 55200, "192.168.100.100", 55200, std::nullopt,
             Base::kPcapReadTimeout, Base::kPcapKernelBufferBytes);
         return params && this->device().open(*params);

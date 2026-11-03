@@ -14,7 +14,7 @@ if(NOT TARGET Lidar::TaskUI)
         GIT_TAG c5cd5088569675e0508015820f642e32efff0e1c)
     FetchContent_Declare(lidar_taskcore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/TaskCore.git
-        GIT_TAG 2878a9fbbaf7683462dacd8620ddd497ab5f2ed1)
+        GIT_TAG 21214a4e639e213e99d678265628e1c89b98aab3)
     FetchContent_MakeAvailable(lidar_taskcore)
 endif()
 set(import_paths)
