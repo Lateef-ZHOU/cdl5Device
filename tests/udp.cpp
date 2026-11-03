@@ -46,8 +46,8 @@ int main(int argc, char **argv)
                      [&](const QString &) { ++diagnostics; });
     check(!handle.send(QByteArray("offline")), "unconnected transport rejects send");
     check(diagnostics == 1, "Handle owns failure diagnostic");
-    handle.stop();
-    handle.stop();
+    handle.close();
+    handle.close();
     check(!handle.isOpen() && !handle.isRunning(), "offline stop is idempotent");
     std::puts("PASS UDP target, binary payload roundtrip and offline lifecycle; no network opened");
 }

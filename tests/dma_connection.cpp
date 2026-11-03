@@ -48,7 +48,7 @@ class ProbeHandle final : public DmaHandle
 {
 public:
     ProbeHandle() = default;
-    ~ProbeHandle() override { stop(); }
+    ~ProbeHandle() override { close(); }
     QSemaphore connected;
     int errorCount = 0;
     int closeCount = 0;
@@ -192,24 +192,24 @@ int main(int argc, char **argv)
     reset();
     {
         ProbeHandle handle;
-        check(handle.start(parameters()), "Handle accepts startup");
+        check(handle.open(parameters()), "Handle accepts startup");
         check(handle.connected.tryAcquire(1, 2000), "Handle opens in worker");
-        handle.stop();
+        handle.close();
         check(openedOn == &handle, "resource acquisition on worker");
         check(closedOn == &handle || closedOn == app.thread(), "cleanup completed by worker or final stop borrower");
         check(!handle.isRunning() && !handle.isOpen(), "stop joins worker and releases connection");
         check(handle.closeCount == 1, "one close notification");
         const auto count = events.size();
-        handle.stop();
+        handle.close();
         check(events.size() == count && handle.closeCount == 1, "repeated stop does not duplicate cleanup");
-        check(handle.start(parameters()), "connection can reopen");
+        check(handle.open(parameters()), "connection can reopen");
         check(handle.connected.tryAcquire(1, 2000), "reopened connection ready");
     }
     check(events.back() == "close-dma", "final destructor synchronously closes");
     reset(Failure::MemoryOpen);
     {
         ProbeHandle handle;
-        check(handle.start(parameters()) && handle.wait(2000), "failed initial open exits worker");
+        check(handle.open(parameters()) && handle.wait(2000), "failed initial open exits worker");
         check(!handle.isOpen() && handle.errorCount >= 1 && events.back() == "close-dma", "failure logged and cleaned");
     }
     std::cout << "PASS " << checks.load() << " checks; no DMA submitted, no FPGA registers written\n";

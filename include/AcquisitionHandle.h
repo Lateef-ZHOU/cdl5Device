@@ -20,7 +20,7 @@
 #include "Cdl5Protocol.h"
 
 // Only the worker touches FPGA registers and the DMA descriptor. Owner-thread sends
-// replace the pending request; stop() wakes that same worker and joins it via HandleCore.
+// replace the pending request; close() wakes that same worker and joins it via HandleCore.
 class Cdl5DmaHandle : public DmaHandle
 {
     Q_OBJECT

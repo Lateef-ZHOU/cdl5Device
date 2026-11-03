@@ -120,3 +120,10 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 设备名称/副标题由构造传入 DeviceBase 的公开 const 成员，Qt 通过 MEMBER CONSTANT 直接暴露；占用查询只保留 holder，Qt 用无效 QVariant 表示空闲、字符串表示占用，删除 isLocked 属性。既有连接、重连、收发和取消逻辑保持。
 
 本轮仅本地整理；集成验证记录见主程序 docs/maintenance/validation.md，不推送。
+
+
+## 2026-11-04：Handle 连接入口统一（用户定）
+
+DMA/UDP Handle 测试同步使用 open/close 连接入口；DMA 资源、触发/取消、分块和关闭顺序不变。本轮不更新板卡。
+
+Windows 主程序增量构建和八秒离屏冒烟通过；本仓测试调用已同步，本轮未单独重跑本仓全套测试，不含硬件或 Linux/ARM 验证。 依赖固定到相邻本地提交，尚未推送，联调使用源码覆盖。
