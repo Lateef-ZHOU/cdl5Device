@@ -8,7 +8,7 @@ if(NOT TARGET Lidar::HandleCore)
     endif()
     FetchContent_Declare(lidar_handle_core
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/HandleCore.git
-        GIT_TAG 40b7dcac817089c4f5dfbefb20c3b39b188b9f70)
+        GIT_TAG 4a2bb97d8ed1b719336039fc9bd2db3d1f73f8e9)
     FetchContent_MakeAvailable(lidar_handle_core)
 endif()
 if(CDL5_WITH_UDP AND NOT TARGET Lidar::Pcap)

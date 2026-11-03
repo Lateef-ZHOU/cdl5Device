@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 #pragma once
+#include <functional>
 #include <atomic>
 #include <cerrno>
 #include <chrono>
@@ -118,7 +119,8 @@ private:
             if (!stopped(conn)) Q_EMIT logMessage(QStringLiteral("CDL5 FPGA 停止超时，下一次采集将拒绝"));
         }
     }
-    void capture(const std::shared_ptr<DmaConnection> &conn, int seconds, const Sink &sink)
+    void capture(const std::shared_ptr<DmaConnection> &conn, int seconds,
+        const std::function<void(std::shared_ptr<DmaConnection>, const QByteArray &, RxTime)> &sink)
     {
         require(stopped(*conn), "FPGA is not stopped; no configuration applied");
         const quint32 geometry = readRegister(*conn, Geometry);
@@ -188,7 +190,8 @@ private:
             sent += static_cast<quint64>(length);
         }
     }
-    bool connLoop(std::shared_ptr<DmaConnection> conn, Sink sink) override
+    bool connLoop(std::shared_ptr<DmaConnection> conn,
+        std::function<void(std::shared_ptr<DmaConnection>, const QByteArray &, RxTime)> sink) override
     {
         try {
             while (true) {

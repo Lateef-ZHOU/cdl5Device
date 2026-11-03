@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
+#include <functional>
 #include <Cdl5/DmaHandle.h>
 
 #include <algorithm>
@@ -62,7 +63,8 @@ private:
             ++closeCount;
     }
     void logMessage(const QString &) const override { ++const_cast<ProbeHandle *>(this)->errorCount; }
-    bool connLoop(std::shared_ptr<DmaConnection>, Sink) override
+    bool connLoop(std::shared_ptr<DmaConnection>,
+        std::function<void(std::shared_ptr<DmaConnection>, const QByteArray &, RxTime)>) override
     {
         // 测试只驻留连接，不提交 DMA、不读写寄存器。
         wake.acquire();
