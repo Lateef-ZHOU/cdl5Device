@@ -140,3 +140,9 @@ DMA 测试沿用原 100 项资源断言，仅调整包含路径；原生及 ARM 
 ## 2026-11-03 回调类型声明整理
 
 DMA capture/connLoop 与测试直接声明 std::function，删除 Sink/DataCallback 别名依赖。Linux/GCC/Qt Core 6.8.3 增量构建及 CTest 3/3 通过（virtual-upload-20261103/build-cdl5Device/callback-alias-{build,test}.log），覆盖连接资源、采集和三规格收集；桥接器构建及 CTest 4/4 通过。分块、ioctl、取消、线程及关闭顺序不变；未更新板卡或驱动。
+
+## 2026-11-03 网口连接显示精简
+
+2026-11-03 用户定：网口连接区仅保留网卡选择和连接/断开，删除 IP、端口等固定参数展示及对应 QML 参数字段；实际连接配置、校验、ARP 和收发关闭行为保持。
+
+Windows 验证：通过主程序本地源码覆盖增量构建，五个网口官邸 qmllint 目标成功；仍有 QObject 属性类型的既有静态提示。八秒离屏冒烟通过，仅既有字体提示；未进行硬件操作或 Linux 验证。证据：LiDAR_DataACQ/build/build-network-ui.log、smoke-network-ui.json。

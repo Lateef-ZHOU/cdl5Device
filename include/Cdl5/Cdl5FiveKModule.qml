@@ -102,14 +102,6 @@ ModulePage {
                 onCommitted: i => root.networkInterfaceIndex = i
             }
         }
-        Label {
-            Layout.fillWidth: true
-            wrapMode: Text.Wrap
-            opacity: 0.6
-            text: qsTr("%1:%2 ↔ %3:%4")
-                .arg(internals.connectionParameters.deviceIPv4Default).arg(internals.connectionParameters.devicePortDefault)
-                .arg(internals.connectionParameters.hostIPv4Default).arg(internals.connectionParameters.hostPortDefault)
-        }
         RowLayout {
             Button {
                 Layout.fillWidth: true

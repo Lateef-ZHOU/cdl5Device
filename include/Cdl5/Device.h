@@ -132,7 +132,7 @@ public:
     }
     ~Cdl5Device() override = default;
     QVariantMap connectionParameters() const
-    { return PcapForm::connectionParameters("192.168.100.200", 55200, "192.168.100.100", 55200, std::nullopt); }
+    { return PcapForm::connectionParameters(); }
     QVariantMap acquisitionParameters() const
     {
         return {{"accumMin", 1}, {"accumMax", Config.maxAccumSeconds()}, {"accumDefault", 1},
