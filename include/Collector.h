@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <QVector>
 #include <DAQCollector.h>
@@ -41,8 +42,9 @@ public:
 private:
     explicit Cdl5Collector(int seconds, DAQContext context)
         : DAQCollector(std::move(context)), seconds_(std::clamp(seconds, 1, Config.maxAccumSeconds())) {}
-    void onFeed(const QByteArray &bytes, RxTime at) override
+    void onFeed(const std::optional<QByteArray> &item, RxTime at) override
     {
+        const auto &bytes = *item;
         // DMA emits at most ChunkBytes; receive offload can coalesce several chunks.
         // Validate record alignment and remaining frame capacity, not the send chunk size.
         if (bytes.isEmpty() || bytes.size() % Cdl5::RecordBytes != 0)

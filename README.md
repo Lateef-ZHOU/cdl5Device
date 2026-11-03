@@ -127,3 +127,9 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 DMA/UDP Handle 测试同步使用 open/close 连接入口；DMA 资源、触发/取消、分块和关闭顺序不变。本轮不更新板卡。
 
 Windows 主程序增量构建和八秒离屏冒烟通过；本仓测试调用已同步，本轮未单独重跑本仓全套测试，不含硬件或 Linux/ARM 验证。 依赖固定到相邻本地提交，尚未推送，联调使用源码覆盖。
+
+## 2026-11-04：进料在消费端取值（用户定）
+
+Collector 的 onFeed 接收 optional<QByteArray> 的 const 引用，由本型号解析端取出字节。空输入由 DeviceCore 公共 feed 拦截；三通道解析、帧格式和尺寸校验不变。
+
+本轮仅本地整理，不推送；集成验证见主程序维护记录。
