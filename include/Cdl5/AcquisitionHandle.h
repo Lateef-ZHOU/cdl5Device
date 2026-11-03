@@ -125,8 +125,10 @@ private:
         const quint32 gates = (geometry >> 8) & 0xffff;
         const quint32 bins = geometry & 0xff;
         const auto frameBytes = quint64(readRegister(*conn, FrameWords)) * 4;
-        require(gates && bins && ((geometry >> 24) & 0xf) == 5
-                && (readRegister(*conn, Mask) & 0x1f) == 7
+        const auto config = Cdl5::configuration(geometry >> 28);
+        require(config && gates == quint32(config->rows) && bins == quint32(config->columns)
+                && ((geometry >> 24) & 0xf) == quint32(config->lanes)
+                && (readRegister(*conn, Mask) & 0x1f) == ((1u << config->channels) - 1)
                 && frameBytes == (quint64(gates) * bins + 1) * Cdl5::RecordBytes
                 && frameBytes <= conn->capacity(), "Unsupported frame geometry or DMA capacity");
         const auto period = readRegister(*conn, Period);

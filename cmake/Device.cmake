@@ -23,13 +23,18 @@ foreach(module Lidar::UICore Lidar::ChartCore Lidar::TaskUI)
     get_filename_component(import_root "${output}/../.." ABSOLUTE)
     list(APPEND import_paths "${import_root}")
 endforeach()
-set_source_files_properties(include/Cdl5/Cdl5Module.qml PROPERTIES QT_RESOURCE_ALIAS Cdl5Module.qml)
+set(cdl5_pages)
+foreach(model FourK FiveK TenK)
+    set(page "include/Cdl5/Cdl5${model}Module.qml")
+    set_source_files_properties(${page} PROPERTIES QT_RESOURCE_ALIAS "Cdl5${model}Module.qml")
+    list(APPEND cdl5_pages ${page})
+endforeach()
 qt_add_qml_module(LidarCdl5Device STATIC URI Lidar.Cdl5 VERSION 1.0
     CLASS_NAME LidarCdl5Plugin RESOURCE_PREFIX /qt/qml
     OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/Lidar/Cdl5"
     DEPENDENCIES Lidar.UI Lidar.Charts Lidar.TaskUI IMPORT_PATH ${import_paths}
-    SOURCES include/Cdl5/Device.h include/Cdl5/Collector.h include/Cdl5/Protocol.h
-    QML_FILES include/Cdl5/Cdl5Module.qml)
+    SOURCES include/Cdl5/Configuration.h include/Cdl5/Device.h include/Cdl5/Collector.h include/Cdl5/Protocol.h
+    QML_FILES ${cdl5_pages})
 add_library(Lidar::Cdl5Device ALIAS LidarCdl5Device)
 target_include_directories(LidarCdl5Device PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/Cdl5")

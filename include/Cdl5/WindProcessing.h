@@ -12,10 +12,11 @@
 #include "Collector.h"
 
 namespace Cdl5 {
-// 交付的 Profile 8/9 上位机以每门起点为斜距。P8 的 range_mode=1 使用统一 60 m。
+// 三个 Profile 均以每门起点为斜距；P7/P8 的 range_mode=1 使用统一 60 m。
 inline QVector<double> gateRanges(int profile, bool uniform, int rows)
 {
-    if (!((profile == 8 && rows == 450) || (profile == 9 && rows == 500 && !uniform))) return {};
+    const auto config = configuration(profile);
+    if (!config || rows != config->rows || (uniform && !config->supportsUniform)) return {};
     QVector<double> ranges(rows);
     for (int i = 0; i < rows; ++i)
         ranges[i] = uniform ? i * 60 : i < 200 ? i * 15

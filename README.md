@@ -37,11 +37,19 @@ Linux 桌面验证可以同时启用 CDL5_WITH_DEVICE。Windows 请求 DMA 时�
 
 ## 桌面官邸
 
-QML 导入 `Lidar.Cdl5` 并装配 `Cdl5Module`。页面独持精确 C++ 后端，向任务提供 DAQ 族引用，保留族级锁、Collector 原型/重试、消费线程及取消链；不提供 DMA 枚举或 DMA 桌面页面。
+QML 导入 `Lidar.Cdl5`，按实际 FPGA 规格装配下表对应的官邸。页面独持精确 C++ 后端，向任务提供 DAQ 族引用，保留族级锁、Collector 原型/重试、消费线程及取消链；不提供 DMA 枚举或 DMA 桌面页面。
 
 连接只选择本机网卡，其余型号参数在 C++：Windows 192.168.100.200:55200，板端 192.168.100.100:55200。三张原谱均用距离门/频点下标，不冒充物理距离或风速。Z 范围初始 0/0 自动全范围；按原谱显示，只有绘图器才钳制。
 
-`Device.h` 的 Cdl5ActiveCollector 当前使用 Cdl5FiveKCollector，即 450 门 ×128 频点，与实测帧头一致；谱尺寸、收齐长度和图窗规格都来自该类型。Cdl5FourKCollector（500 门）仍保留，今后以实际帧头及用户确认切换，不仅凭交付包名称判断。两种 Collector 均已验证，切换不修改 Handle 或 Bridge。
+三个末端分别持有精确型号后端，Collector、图窗尺寸、累积上限由 `Configuration.h` 的同一编译期规格导出。没有全局“活动型号”别名或运行时规格状态；应用选择页面即选择该型号。帧头 Profile、lane 格式和尺寸必须同时匹配，不会把等字节长度的 P7/P8 误当成同一种帧。
+
+| QML 官邸 / C++ 后端 | Profile | 三路原谱尺寸 | lane | 累积输入 | 混合距离覆盖 |
+|---|---|---|---|---|---|
+| Cdl5FourKModule / Cdl5FourKDevice | 9 / 4 kHz | 500×128 | 5 | 1–16 s | 34.5 km |
+| Cdl5FiveKModule / Cdl5FiveKDevice | 8 / 5 kHz | 450×128 | 5 | 1–13 s | 27 km |
+| Cdl5TenKModule / Cdl5TenKDevice | 7 / 10 kHz | 240×240 | 6 | 1–6 s | 5.4 km |
+
+P7 混合模式为前 200 门×15 m、后 40 门×60 m；P7/P8 还支持统一 60 m 模式，分别覆盖 14.4/27 km。图窗最大斜距覆盖该规格允许的模式，实际坐标仍读取帧头选择。累积上限按 16 位计数器/标称触发频率计算，DMA 端另按活动周期验证实际计数，并确认配置回读相符；10 kHz 多秒累积仍需换逻辑后硬件验收。
 
 完成一次采集，处理线程独立发出三路 spectrumReady；启用保存时通过现有 AcqSaver 写入：
 
@@ -51,13 +59,13 @@ Rawspec/<session>/ADC1_<frame-time>.bin
 Rawspec/<session>/ADC2_<frame-time>.bin
 ```
 
-每份为无头、小端 IEEE-754 double，距离门为行、128 频点为列。沿用已有 detached 保存方式，不新增退出排空。原型为空数组；makeSelf 才 reserve 三路收集区，完成后只读共享给处理/绘图/保存。
+每份为无头、小端 IEEE-754 double，距离门为行、型号规定的 128 或 240 频点为列。沿用已有 detached 保存方式，不新增退出排空。原型为空数组；makeSelf 才 reserve 三路收集区，完成后只读共享给处理/绘图/保存。
 
 ## 字节协议与采集
 
 详见 [采集协议](docs/acquisition.md)。要点：
 
-- 下行统一 8 字节：小端 magic 0x354c4443，随后小端 uint32 累积秒数；1..13 开始，0 取消。13 秒在 4/5 kHz 两版均不会超过 16 位累积计数。单次触发，默认 1 秒。
+- 下行统一 8 字节：小端 magic 0x354c4443，随后小端 uint32 累积秒数；传输格式接受 1..16 秒开始、0 取消；具体官邸进一步钳制到本型号上限，DMA 按活动周期拒绝超过 65535 次的请求。单次触发，默认 1 秒。
 - DMA 读取整帧所需的传输长度来自 REG_FRAME_WORDS，累积计数由当前活动触发周期计算；不改变触发频率、光源、通道映射或距离模式。
 - 一帧一次 START，先准备 DMA 再触发 FPGA。WAIT_KEEP 短等待，完成后 rewind/read，每次交付最多 1024 字节自有 QByteArray，尾包交实际剩余字节。
 - 第一包含 32 字节整帧头；随后每条 32 字节，前三个小端 FP32 分别转成 double，无符号整数仅用来读取位型。元信息不参与重排或去重。
@@ -69,7 +77,7 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 
 [VALIDATION.md](VALIDATION.md) 记录 Windows、Linux、ARM64 结果和实测边界。测试替换系统调用/抓包接口，实际 Handle、Collector、Device 消费链保持生产实现。`tests/build-arm.sh` 使用现有板卡 SDK 构建测试，不安装应用、不重打镜像。
 
-当前 Windows 程序使用实测 450×128 规格。物理风速的现场验收需要逐 ADC 确认零风速参考频率。
+板卡此前实测活动规格为 5 kHz/P8；应用装配型号及实际刷入的 FPGA 必须一致。物理风速的现场验收需要逐 ADC 确认零风速参考频率。
 
 ## 许可与发布
 
@@ -81,6 +89,6 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 
 ## 三路 ADC 的风测量
 
-每个 ADC 标签内有功率谱、径向风速/CNR、风廓线三个常驻图窗。距离以交付上位机 frame_decoder.py 的 gate_distance_m 为准，以每门起点为坐标。P8 混合模式前 200 门从 0 m 起每 15 m，接下来的 150 门从 3000 m 起每 60 m，最后 100 门从 12000 m 起每 150 m。帧头 word7 的 range_mode 置位时按 60 m 等间隔处理。P9 混合模式最后有 150 门。
+每个 ADC 标签内有功率谱、径向风速/CNR、风廓线三个常驻图窗。距离以交付上位机 frame_decoder.py 的 gate_distance_m 为准，以每门起点为坐标。P8 混合模式前 200 门从 0 m 起每 15 m，接下来的 150 门从 3000 m 起每 60 m，最后 100 门从 12000 m 起每 150 m。帧头 word7 的 range_mode 置位时按 60 m 等间隔处理。P9 混合模式最后有 150 门。P7 只包含前 200 门×15 m 和后 40 门×60 m，统一模式为 240 门×60 m。
 
 工作线程逐通道拟合谱峰。CNR 不依赖零风速频率。风速换算使用帧头 word4 的起始 bin、500 MSPS、512 点 FFT 和 1550 nm 波长。程序启动时从 exe 旁的 cdl5-wind.ini 读取 [wind] 节的 ADC0、ADC1、ADC2（MHz）。未填写或参考频率超出本帧频带时，该通道仅显示 CNR，风速缺测。每路独立使用四束实测朝向，在任务同步点求 ENU，按逐门斜距乘平均仰角的正弦生成高度。无朝向、未凑齐四束或几何退化时不产生风廓线。勾选保存后使用 AcqSaver 的非均匀接口保存已标定通道及真实 Range/High。

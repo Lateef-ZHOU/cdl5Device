@@ -17,9 +17,9 @@ template<class F> void until(F ready)
     }
     check(ready(),"production pipeline timed out");
 }
-int main(int argc,char **argv)
+template<class DeviceT> void verify(QCoreApplication &app)
 {
-    QCoreApplication app(argc,argv);
+    using C = typename DeviceT::CollectorType;
     QTemporaryDir output;check(output.isValid(),"temporary output directory");
     FakePcap::reset();
     bool ok=false;
@@ -28,12 +28,12 @@ int main(int argc,char **argv)
     p.deviceMAC=MAC::fromString("02:00:00:00:00:02",ok);
     p.hostIPv4=IPv4::fromString("192.0.2.1",ok);p.deviceIPv4=IPv4::fromString("192.0.2.2",ok);
     p.hostPort=55200;p.devicePort=55200;
-    Cdl5Device backend(nullptr);
-    constexpr auto points = Cdl5ActiveCollector::Points;
+    DeviceT backend(nullptr);
+    constexpr auto points = C::Points;
     check(backend.device().open(p),"open UDP backend");
     until([&] { return backend.device().isOpen(); });
     int signals=0;
-    QObject::connect(&backend,&Cdl5Device::spectrumReady,&app,[&](int channel,const QVector<double> &values) {
+    QObject::connect(&backend,&DeviceT::spectrumReady,&app,[&](int channel,const QVector<double> &values) {
         check(QThread::currentThread()==app.thread(),"plot data delivered to main thread");
         check(values.size()==points&&values.front()==channel+1.25&&values.back()==channel+1.25,"three independent spectra");
         ++signals;
@@ -45,8 +45,9 @@ int main(int argc,char **argv)
     const auto sent=FakePcap::sent();
     check(!sent.empty()&&UDPDatagram(sent.front().bytes).bodyView()==Cdl5::command(1),"collector command through Pcap");
     QByteArray frame((points+1)*32,0);
-    qToLittleEndian(Cdl5::FrameMagic,frame.data());qToLittleEndian(quint32(0x05040507),frame.data()+4);
-    qToLittleEndian(quint32((Cdl5ActiveCollector::Rows<<16)|Cdl5ActiveCollector::Columns),frame.data()+8);
+    qToLittleEndian(Cdl5::FrameMagic,frame.data());qToLittleEndian(quint32(C::Specification.frameFormat()),frame.data()+4);
+    qToLittleEndian(quint32((C::Rows<<16)|C::Columns),frame.data()+8);
+    qToLittleEndian(quint32((C::Specification.profile << 12) | 15),frame.data()+16);
     for(qsizetype i=0;i<points;++i) for(int c=0;c<3;++c)
         qToLittleEndian(std::bit_cast<quint32>(float(c)+1.25f),frame.data()+(i+1)*32+c*4);
     const auto session=FakePcap::last();
@@ -72,4 +73,12 @@ int main(int argc,char **argv)
     }
     backend.close();
     std::cout<<"PASS UDP -> Device/Collector -> consume thread -> three signals and three saved spectra\n";
+}
+
+int main(int argc, char **argv)
+{
+    QCoreApplication app(argc, argv);
+    verify<Cdl5FourKDevice>(app);
+    verify<Cdl5FiveKDevice>(app);
+    verify<Cdl5TenKDevice>(app);
 }

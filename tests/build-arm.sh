@@ -23,6 +23,9 @@ compile /src/tests/dma_connection.cpp -Wl,--wrap=sysconf -o /out/cdl5_dma_connec
 /work/hostqt/libexec/moc -DQT_NO_KEYWORDS -I/src/include -I/handle/include -I/proxy \
     -I"$prefix/include" -I"$prefix/include/QtCore" \
     /src/include/Cdl5/AcquisitionHandle.h -o /out/moc_AcquisitionHandle.cpp
-compile /src/tests/dma_capture.cpp /out/moc_AcquisitionHandle.cpp \
+/work/hostqt/libexec/moc -DQT_NO_KEYWORDS -I/handle/include \
+    -I"$prefix/include" -I"$prefix/include/QtCore" \
+    /handle/include/ResourcePhase.h -o /out/moc_ResourcePhase.cpp
+compile /src/tests/dma_capture.cpp /out/moc_AcquisitionHandle.cpp /out/moc_ResourcePhase.cpp \
     -Wl,--wrap=read,--wrap=lseek64 -o /out/cdl5_dma_capture_probe-arm64
 aarch64-linux-gnu-readelf -V /out/cdl5_dma_capture_probe-arm64

@@ -1,5 +1,7 @@
 # cdl5Device 维护入口
 
+2026-11-03 用户定：同仓提供 FourK/FiveK/TenK 三个明确类型的 UDP 官邸，规格统一在 Configuration.h，保持三 ADC、FP32 小端与 32/1024 字节边界。DMA 按活动 Profile 核对 P9/P8 的 5 lane 或 P7 的 6 lane，不改驱动 ABI、触发/取消及关闭顺序。Windows 装配由应用选择具体页面，删除旧 Cdl5Module/Cdl5ActiveCollector；本轮准许推送及更新板端 root 镜像、重启，不烧写 FPGA、不动系统/内核和 eMMC。验证进度见 VALIDATION。
+
 2026-11-02：三路 ADC 各自的原谱、非均匀风速/CNR、风羽已接入。门位与起始 bin 读实际帧头；风测量标定、验证边界详见 README 和 VALIDATION。
 
 

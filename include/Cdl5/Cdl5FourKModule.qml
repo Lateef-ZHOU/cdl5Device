@@ -21,7 +21,7 @@ ModulePage {
     component ChannelPage: Page {
         id: adc
         required property int channel
-        required property Cdl5Device backend
+        required property Cdl5FourKDevice backend
         required property var spec
         title: qsTr("ADC%1").arg(channel)
         contentItem: TabPane {
@@ -48,7 +48,7 @@ ModulePage {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             specification: ({windMin: -60, windMax: 60, cnrMin: -50, cnrMax: 50,
-                                             rangeMinimum: 0, rangeMaximum: 27000})
+                                             rangeMinimum: 0, rangeMaximum: adc.spec.rangeMaximum})
                         }
                     }
                 },
@@ -65,7 +65,7 @@ ModulePage {
                             objectName: "barbsADC" + adc.channel
                             Layout.fillWidth: true
                             Layout.fillHeight: true
-                            configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1, maxHeight: 27000})
+                            configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1, maxHeight: adc.spec.rangeMaximum})
                         }
                     }
                 }
@@ -131,7 +131,7 @@ ModulePage {
         device: internals.device
         acquisition: root
     }
-    objectName: "Cdl5Module"
+    objectName: "Cdl5FourKModule"
     readonly property string name: internals.device.device.displayName
     readonly property string subtitle: internals.device.device.subtitle
     // 借用公共只读资源接口，不暴露具体型号后端或缓存状态。
@@ -142,7 +142,7 @@ ModulePage {
         id: internals
         readonly property var chartParameters: device.chartParameters()
         readonly property var connectionParameters: device.connectionParameters
-        readonly property Cdl5Device device: root.Cdl5Device
+        readonly property Cdl5FourKDevice device: root.Cdl5FourKDevice
     }
     Connections {
         target: internals.device.device.logSource

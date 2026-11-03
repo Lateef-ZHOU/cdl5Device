@@ -1,5 +1,14 @@
 # 验证记录
 
+## 2026-11-03：4/5/10 kHz 三规格官邸
+
+- Windows/MSVC/Qt 6.11.2 Release 构建、五个公开头独立编译、qmllint 通过。最终编译和 lint 无新增警告；首次发现 Profile 比较的 signed/unsigned 诊断，显式使用协议字段类型后通过。CTest 3/3：UDP、三种 Collector、三个独立页面各自创建/接线/销毁，确认唯一后端、DAQ 族引用和具体原型类型。
+- Collector 合成完整帧逐点核对三路小端 FP32→double；覆盖 1024 字节块、32 字节尾、7168 字节合并批次、缺尾、超量、错误尺寸/lane/Profile、轻量只读原型及重试独立收集区。P7 混合门起点 0..5340 m、统一模式 0..14340 m；P9 末门 34350 m。型号累积上限 16/13/6 秒按 16 位计数器计算并检查。
+- ArchHFNL/Linux x86_64/GCC 16.2.1/Qt Core 6.8.3：DMA 模块 Release / Werror、单头、CTest 2/2 通过，新增 P7 六 lane 成功和错误五 lane 拒收；4/5 kHz、短读/EINTR、取消及 DMA 错误回收回归通过。该机当前没有桌面 Qt/Ninja，因此使用现有 Qt Core SDK 和 Make；未声称运行 Linux 图形页面。
+- 现有 PetaLinux SDK 交叉编译 ARM64 成功；修正测试构建入口，补编译 ResourcePhase 的 moc（此前脚本未跟随资源信号改造）。两个 ARM 测试上传 /tmp 后在板上执行通过，连接测试 100 检查，采集测试覆盖三规格。全部系统调用使用替身，不触发真实 DMA/FPGA，不修改板上程序或镜像。
+- 证据：本地 out/{build-profiles-final,lint-profiles,test-profiles,test-arm-board}.log；远端 ~/cdl5-profiles-20261103/out/。此前真实帧仍是 5 kHz/P8；10 kHz 的实采、触发和多秒累积必须等待用户刷入新逻辑验证。三规格均保留原始谱幅值，不提前实施归一化待办。
+
+
 ## 2026-11-02 三路非均匀风图
 
 Windows Release 构建、公开头与 LidarCdl5Device_qmllint 通过。CTest 3/3，页面探针实例化 ADC0/1/2 各自的谱、风速/CNR 与风羽，接收合成剖面和整列。已知谱峰按真实起始 bin 和参考频率得到预期径向风速，未标定时风速缺测、CNR 相同。两份既有实机捕获帧离线回放均为 3×450 门、起始 bin 15、斜距 0..26850 m。未采集新的硬件数据。首次独立测试暴露间接旧 ChartCore 不含非均匀组件及测试对 CNR 正负的不当预期，固定实际提供该组件的版本并按可计算的理论 CNR 校验后通过。

@@ -7,16 +7,18 @@
 #include <QVector>
 #include <Device/DAQ/DAQCollector.h>
 #include "Protocol.h"
+#include "Configuration.h"
 
-// P9 (4 kHz): 500 x 128; P8 (5 kHz): 450 x 128. Transport records are identical.
-template<int Gates>
+// Three FPGA specifications share the same record decoding and retry lifecycle.
+template<Cdl5::Configuration Config>
 class Cdl5Collector final : public DAQCollector
 {
 public:
-    static constexpr int Rows = Gates;
-    static constexpr int Columns = 128;
+    static constexpr int Rows = Config.rows;
+    static constexpr int Columns = Config.columns;
     static constexpr qsizetype Points = Rows * Columns;
-    using Frame = std::array<QVector<double>, 3>;
+    static constexpr auto Specification = Config;
+    using Frame = std::array<QVector<double>, Config.channels>;
     static std::shared_ptr<const Cdl5Collector> createPrototype(int seconds, DAQContext context)
     {
         return std::shared_ptr<const Cdl5Collector>(new Cdl5Collector(seconds, std::move(context)));
@@ -38,7 +40,7 @@ public:
 
 private:
     explicit Cdl5Collector(int seconds, DAQContext context)
-        : DAQCollector(std::move(context)), seconds_(std::clamp(seconds, 1, Cdl5::MaxAccumSeconds)) {}
+        : DAQCollector(std::move(context)), seconds_(std::clamp(seconds, 1, Config.maxAccumSeconds())) {}
     void onFeed(const QByteArray &bytes, RxTime at) override
     {
         // DMA emits at most ChunkBytes; receive offload can coalesce several chunks.
@@ -49,8 +51,9 @@ private:
         if (!headerReceived_) {
             // One header per complete frame, not one per UDP datagram. No per-record meta lookup.
             if (Cdl5::word(bytes.constData()) != Cdl5::FrameMagic
-                || Cdl5::word(bytes.constData() + 4) != 0x05040507u
-                || Cdl5::word(bytes.constData() + 8) != ((quint32(Rows) << 16) | Columns))
+                || Cdl5::word(bytes.constData() + 4) != Config.frameFormat()
+                || Cdl5::word(bytes.constData() + 8) != ((quint32(Rows) << 16) | Columns)
+                || ((Cdl5::word(bytes.constData() + 16) >> 12) & 15) != quint32(Config.profile))
                 return;
             offset = Cdl5::RecordBytes;
         }
@@ -63,7 +66,7 @@ private:
             frameTime_ = at;
         }
         for (; offset < bytes.size(); offset += Cdl5::RecordBytes)
-            for (int channel = 0; channel != 3; ++channel)
+            for (int channel = 0; channel != Config.channels; ++channel)
                 frame_[channel].append(Cdl5::power(bytes.constData() + offset + channel * 4));
     }
     const int seconds_;
@@ -72,6 +75,7 @@ private:
     bool headerReceived_ = false; // Distinguishes a header-only first datagram from no frame yet.
     Frame frame_;
 };
-using Cdl5FourKCollector = Cdl5Collector<500>;
-using Cdl5FiveKCollector = Cdl5Collector<450>;
-static_assert(DAQCollectorLike<Cdl5FourKCollector> && DAQCollectorLike<Cdl5FiveKCollector>);
+using Cdl5FourKCollector = Cdl5Collector<Cdl5::FourK>;
+using Cdl5FiveKCollector = Cdl5Collector<Cdl5::FiveK>;
+using Cdl5TenKCollector = Cdl5Collector<Cdl5::TenK>;
+static_assert(DAQCollectorLike<Cdl5FourKCollector> && DAQCollectorLike<Cdl5FiveKCollector> && DAQCollectorLike<Cdl5TenKCollector>);

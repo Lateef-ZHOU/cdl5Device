@@ -29,11 +29,12 @@ void check(bool condition, const char *message)
 void prepare(int gates)
 {
     for (int i=0;i<1024;++i) regs[i]=0;
-    regs[0x84/4]=(quint32(gates==500?9:8)<<28)|(5<<24)|(quint32(gates)<<8)|128;
+    const auto config = gates == 500 ? Cdl5::FourK : gates == 450 ? Cdl5::FiveK : Cdl5::TenK;
+    regs[0x84/4]=(quint32(config.profile)<<28)|(quint32(config.lanes)<<24)|(quint32(gates)<<8)|config.columns;
     regs[0x0c/4]=7;
-    regs[0x1c/4]=gates==500?62500:50000;
+    regs[0x1c/4]=250000000 / config.rateHz;
     regs[0x24/4]=0xff8;
-    source=QByteArray((gates*128+1)*32,Qt::Uninitialized);
+    source=QByteArray((gates*config.columns+1)*32,Qt::Uninitialized);
     for(qsizetype i=0;i<source.size();++i) source[i]=char(i%251);
     regs[0x10/4]=static_cast<quint32>(source.size()/4);
     starts=0;resets=0;reads=0;waits=0;logs=0;chunks.clear();fault=Fault::None;
@@ -72,7 +73,7 @@ extern "C" int __wrap_ioctl(int fd,unsigned long cmd,...)
     if(cmd==CDL5_DMA_START) {
         check(regs[0x04/4]==0,"DMA armed before FPGA trigger");
         check(request->length==static_cast<quint32>(source.size()),"frame length read from FPGA");
-        check(regs[0x64/4]==(regs[0x1c/4]==62500?4000u:5000u),"accumulation follows active trigger period");
+        check(regs[0x64/4]==250000000u / regs[0x1c/4],"accumulation follows active trigger period");
         ++starts;position=0;waits=0;started.release();
         if(fault==Fault::Start) { errno=EIO;return -1; }
         return 0;

@@ -7,9 +7,9 @@
 #include <type_traits>
 void check(bool value, const char *reason)
 { if (!value) { std::cerr << reason << '\n'; std::exit(1); } }
-template<int Gates> void verify()
+template<Cdl5::Configuration Config> void verify()
 {
-    using C = Cdl5Collector<Gates>;
+    using C = Cdl5Collector<Config>;
     const auto prototype = C::createPrototype(2, {});
     check(prototype->constFrame()[0].capacity() == 0, "prototype allocates no spectrum");
     const auto result = prototype->makeSelf();
@@ -18,8 +18,9 @@ template<int Gates> void verify()
     const RxTime stamp = RxTime{} + std::chrono::seconds(123);
     QByteArray frame((C::Points + 1) * 32, char(-1));
     qToLittleEndian(Cdl5::FrameMagic, frame.data());
-    qToLittleEndian(quint32(0x05040507), frame.data() + 4);
-    qToLittleEndian(quint32((Gates << 16) | 128), frame.data() + 8);
+    qToLittleEndian(quint32(Config.frameFormat()), frame.data() + 4);
+    qToLittleEndian(quint32((Config.rows << 16) | Config.columns), frame.data() + 8);
+    qToLittleEndian(quint32((Config.profile << 12) | 15), frame.data() + 16);
     for (qsizetype i = 0; i < C::Points; ++i)
         for (int c = 0; c < 3; ++c)
             qToLittleEndian(std::bit_cast<quint32>(float(i) + 0.25f * (c + 1)), frame.data() + (i + 1) * 32 + c * 4);
@@ -27,6 +28,14 @@ template<int Gates> void verify()
     auto wrong = frame.first(1024);
     qToLittleEndian(quint32(0), wrong.data() + 8);
     check(!result->feed(wrong, stamp) && result->constFrame()[0].isEmpty(), "wrong dimensions rejected");
+    wrong = frame.first(1024);
+    qToLittleEndian(quint32(0x05040707), wrong.data() + 4);
+    check(!result->feed(wrong, stamp) && result->constFrame()[0].isEmpty(), "wrong lane format rejected");
+    wrong = frame.first(1024);
+    qToLittleEndian(quint32(0), wrong.data() + 16);
+    check(!result->feed(wrong, stamp) && result->constFrame()[0].isEmpty(), "wrong profile rejected");
+    const auto clamped = C::createPrototype(999, {});
+    check(Cdl5::decodeCommand(clamped->buildStart().front()) == Config.maxAccumSeconds(), "model accumulation upper bound");
     int packets = 0;
     for (qsizetype offset = 0; offset < frame.size(); offset += 1024) {
         const auto packet = frame.mid(offset, 1024);
@@ -34,7 +43,7 @@ template<int Gates> void verify()
         check(result->feed(packet, stamp) == last, "complete only at exact full frame size");
         ++packets;
     }
-    check(packets == (Gates == 500 ? 2001 : 1801), "1024-byte chunks and 32-byte tail");
+    check(packets == (Config.rows == 500 ? 2001 : 1801), "1024-byte chunks and 32-byte tail");
     for (qsizetype i = 0; i < C::Points; ++i)
         for (int c = 0; c < 3; ++c)
             check(result->constFrame()[c][i] == double(i) + 0.25 * (c + 1), "FP32 LE decoded and widened in arrival order, meta ignored");
@@ -71,14 +80,20 @@ int main(int argc, char **argv)
     const auto unaligned = QByteArray::fromHex("780000a03f");
     check(Cdl5::power(unaligned.constData() + 1) == 1.25, "unaligned little-endian float bit interpretation");
     check(Cdl5::command(2).toHex() == "43444c3502000000", "command wire bytes");
-    check(!Cdl5::decodeCommand(Cdl5::command(14)), "invalid duration rejected");
-    verify<500>(); verify<450>();
+    check(!Cdl5::decodeCommand(Cdl5::command(17)), "invalid duration rejected");
+    verify<Cdl5::FourK>(); verify<Cdl5::FiveK>(); verify<Cdl5::TenK>();
     const auto ranges = Cdl5::gateRanges(8, false, 450);
     check(ranges.size() == 450 && ranges[199] == 2985 && ranges[200] == 3000
           && ranges[349] == 11940 && ranges[350] == 12000 && ranges.last() == 26850,
           "Profile 8 mixed gate origins match host coordinates");
     check(Cdl5::gateRanges(8, true, 450).last() == 26940 && Cdl5::gateRanges(1, false, 450).isEmpty(),
           "frame-selected uniform mode and unsupported profile");
+    const auto tenK = Cdl5::gateRanges(7, false, 240);
+    check(tenK.size() == 240 && tenK[199] == 2985 && tenK[200] == 3000 && tenK.last() == 5340,
+          "Profile 7 mixed gates span 5.4 km");
+    check(Cdl5::gateRanges(7, true, 240).last() == 14340
+          && Cdl5::gateRanges(9, false, 500).last() == 34350
+          && Cdl5::gateRanges(9, true, 500).isEmpty(), "uniform P7 and mixed P9 geometry");
     QVector<double> peak(128);
     for (int i = 0; i < 128; ++i) peak[i] = 2 + 30 * std::exp(-0.5 * std::pow((i - 68) / 3.0, 2));
     const auto [wind, valid] = Cdl5::radial(peak, 1, 128, 15, 80.0);
@@ -87,7 +102,7 @@ int main(int argc, char **argv)
           && std::isnan(uncal.ws.front()) && wind.cnr.front() == uncal.cnr.front()
           && std::abs(wind.cnr.front() - 10 * std::log10(std::sqrt(2 * std::numbers::pi) * 90 / 256)) < 0.02,
           "known peak, real bin offset, missing reference still produces identical CNR");
-    std::cout << "PASS both FPGA geometries, FP32, prototype/retry, chunks and coalesced batches\n";
+    std::cout << "PASS three FPGA geometries, FP32, prototype/retry, chunks and coalesced batches\n";
     for (int i = 1; i < argc; ++i) {
         QFile file(QString::fromLocal8Bit(argv[i]));
         check(file.open(QIODevice::ReadOnly), "open captured frame");
