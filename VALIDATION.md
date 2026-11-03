@@ -1,5 +1,18 @@
 # 验证记录
 
+## 2026-11-03：10 kHz FPGA 逻辑替换、重启与真实采集
+
+- 用户授权备份、改写 BOOT.BIN、重启并验证。SD 备份目录 `/media/sd-mmcblk1p1/codex_fpga10k_backup_20261103_161849` 保留旧 BOOT.BIN、SHA256 和恢复说明；本机副本及证据位于 `out/fpga-10k-20261103/`。旧镜像 SHA256 为 `079bcca7d0297f133184f1d7fd568c61ef7f17b7ea87ad89ec0ff151b34ca75b`。
+- 使用 capture-10k/20_runtime 的 `ad9695_prod3_10k240_dualrange_unscaled_dcrem_acdc_trigio_u64_0x26090301.bit.bin`，SHA256 `46f410266ad6b6b3d222378d72b591ee11edaf9effb5b47a7242352ec47640e9`。仅替换原镜像等长 PL 分区（偏移 251136、长度 26510780）并更新分区名称；FSBL/PMUFW、BL31、内嵌设备树、U-Boot 分区逐字节不变。此镜像无加密/签名/载荷校验字段，头部校验、各分区长度和属性保持；官方 Bootgen 2020.1 读取新旧镜像通过。这是对本次特定镜像的检查，不作为任意 BOOT.BIN 均可原位修改的规则。
+- 新 BOOT.BIN 大小仍为 27756036 字节，SHA256 `918e0450766b826a942265179e5676ede68acc7ecafccc78e1322d107b3c3a57`。先停止两桥接服务，上传临时文件、校验并替换、sync 后正常重启；boot_id 由 `9cb921bd-df21-4cae-bb86-d77231ab5239` 变为 `65a5b230-ab68-4c17-8563-84156b6fa890`。未直接覆盖交付包中的完整 BOOT.BIN，保留板卡既有启动链。
+- 重启后实际寄存器：Version=`0x26090301`，Geometry=`0x7600f0f0`（P7、6 lane、240×240），Period=25000（250 MHz 下为 10 kHz），FrameWords=460808，ADC mask=7，Accum=10000，JESD=`0x64ff8`。旧逻辑更新前同一只读探针读到 P8/450×128/Period=50000。代理驱动自动加载并注册 `/dev/cdl5_dma_proxy`；laser-bridge PID848、cdl5-bridge PID890 自动启动，Device/UDP 连接成功，硬件 watchdog 仍在运行。
+- 通过 Windows 原物理网卡发送一次既有 8 字节、1 秒采集命令，经过生产 Pcap→Bridge→DMA→Bridge→UDP 路径。Windows 捕获完整一帧 1843232 字节，帧头为 `324c4443 05040607 00f000f0 000061a8 2710700f 00000002 00000000 00000000`；三 ADC 各 57600 点，小端 FP32 独立解码全部有限、非负、非零。帧 SHA256 `1ecedf7f02be92cbf27209e2bece1d2b09658c2d6fdcc0e91ce3561cf347293e`。接收仍为 257×7168+1024+32 字节批次，未改变既有合并处理。首次离线检查仅因 dumpcap 输出纳秒 PCAP 魔数而拒绝，兼容该文件头后重读同一捕获通过，未因此重新发起采集。
+- 采后 Enable/Busy/RunState 全为 0，两服务仍正常。boot.scr、image.ub、root-home.tar.gz、代理模块、bridge 与旧 V52 初始化程序的 SHA256 均与更新前相同；没有操作 eMMC 科学数据，没有发送激光器命令。此次验证真实采集链路与完整帧，不包括 Windows UI 绘图验收、激光功能、多秒累积、风速标定或长期无丢包保证。
+- 启动日志出现 SD FAT 分区“Volume was not properly unmounted”提示，来源尚未确定；镜像和保护文件校验均通过。本轮未对已挂载分区执行 fsck，也未扩展为文件系统修复。只读寄存器探针经 `/dev/mem` 的 O_RDONLY/PROT_READ 映射；板上没有 devmem/lsmod 命令，对应首轮命令失败不计验证通过，驱动状态由字符设备、内核注册日志及真实 DMA 采集确认。
+- 证据：`backup.json`、`image-verification.json`、`boot-before.txt`/`boot-10k.txt`、`install.log`、`deployment.json`、`registers-before.txt`/`registers-after.txt`、`ten-k-real-frame.pcap`/`.bin`、`capture-result.json`、`final-check.log`。仅同步维护记录，不改变生产代码，不推送或新发 Release。
+
+回退：关闭板卡后通过读卡器，将上述 SD 备份目录内的 BOOT.BIN 复制到 SD 启动分区根目录替换现文件，核对旧 SHA256，安全弹出并重启。其他镜像和 eMMC 不需要恢复。回退后桌面须选用 FiveK 规格；本轮保留备份但未实际执行回退。
+
 ## 2026-11-03：4/5/10 kHz 三规格官邸
 
 - Windows/MSVC/Qt 6.11.2 Release 构建、五个公开头独立编译、qmllint 通过。最终编译和 lint 无新增警告；首次发现 Profile 比较的 signed/unsigned 诊断，显式使用协议字段类型后通过。CTest 3/3：UDP、三种 Collector、三个独立页面各自创建/接线/销毁，确认唯一后端、DAQ 族引用和具体原型类型。
