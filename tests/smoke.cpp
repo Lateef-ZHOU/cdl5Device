@@ -26,7 +26,7 @@ template<class DeviceT> int verify(QGuiApplication &app, const char *module)
         if (!page) { qCritical() << component.errors(); return 1; }
         const QQmlListReference charts(page.get(), "mainPages");
         const QQmlListReference sections(page.get(), "sections");
-        if (charts.count() != 3 || sections.count() < 1) return 2;
+        if (charts.count() != 9 || sections.count() < 1) return 2;
         if (page->property("name").toString().isEmpty()) return 3;
         QObject *backend = nullptr;
         int backends = 0;

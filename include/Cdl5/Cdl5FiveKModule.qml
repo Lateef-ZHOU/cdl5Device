@@ -18,60 +18,57 @@ ModulePage {
     sections: [connectionSection, acquisitionSection].filter(item => item !== null)
     // 界面只选择本机网卡；其他连接参数固定在型号配置中。
     property int networkInterfaceIndex: internals.connectionParameters.networkInterfaceDefault
-    component ChannelPage: Page {
+    component ChannelPlots: QtObject {
         id: adc
         required property int channel
         required property Cdl5FiveKDevice backend
         required property var spec
-        title: qsTr("ADC%1").arg(channel)
-        contentItem: TabPane {
-            pages: [
-                Page {
-                    title: qsTr("功率谱 3D")
-                    contentItem: SurfaceView {
-                        id: surface
-                        specification: adc.spec
+        readonly property list<Page> pages: [
+            Page {
+                title: qsTr("ADC%1·功率谱").arg(adc.channel)
+                contentItem: SurfaceView {
+                    id: surface
+                    specification: adc.spec
+                }
+            },
+            Page {
+                title: qsTr("ADC%1·径向风").arg(adc.channel)
+                contentItem: ColumnLayout {
+                    Label {
+                        id: radialNote
+                        Layout.fillWidth: true
+                        text: qsTr("等待接收功率谱")
+                        wrapMode: Text.Wrap
                     }
-                },
-                Page {
-                    title: qsTr("径向风速 / CNR")
-                    contentItem: ColumnLayout {
-                        Label {
-                            id: radialNote
-                            Layout.fillWidth: true
-                            text: qsTr("等待接收功率谱")
-                            wrapMode: Text.Wrap
-                        }
-                        NonuniformWind2DView {
-                            id: radial
-                            objectName: "radialADC" + adc.channel
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            specification: ({windMin: -60, windMax: 60, cnrMin: -50, cnrMax: 50,
-                                             rangeMinimum: 0, rangeMaximum: adc.spec.rangeMaximum})
-                        }
-                    }
-                },
-                Page {
-                    title: qsTr("风廓线")
-                    contentItem: ColumnLayout {
-                        Label {
-                            id: profileNote
-                            Layout.fillWidth: true
-                            text: qsTr("等待已标定的四束采集结果")
-                        }
-                        NonuniformWindBarbItem {
-                            id: barbs
-                            objectName: "barbsADC" + adc.channel
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1, maxHeight: adc.spec.rangeMaximum})
-                        }
+                    NonuniformWind2DView {
+                        id: radial
+                        objectName: "radialADC" + adc.channel
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        specification: ({windMin: -60, windMax: 60, cnrMin: -50, cnrMax: 50,
+                                         rangeMinimum: 0, rangeMaximum: adc.spec.rangeMaximum})
                     }
                 }
-            ]
-        }
-        Connections {
+            },
+            Page {
+                title: qsTr("ADC%1·风廓线").arg(adc.channel)
+                contentItem: ColumnLayout {
+                    Label {
+                        id: profileNote
+                        Layout.fillWidth: true
+                        text: qsTr("等待已标定的四束采集结果")
+                    }
+                    NonuniformWindBarbItem {
+                        id: barbs
+                        objectName: "barbsADC" + adc.channel
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1, maxHeight: adc.spec.rangeMaximum})
+                    }
+                }
+            }
+        ]
+        readonly property Connections updates: Connections {
             target: adc.backend
             function onSpectrumReady(channel, values) {
                 if (channel === adc.channel) surface.updateSpectrum(values)
@@ -89,11 +86,10 @@ ModulePage {
             }
         }
     }
-    mainPages: [
-        ChannelPage { channel: 0; backend: internals.device; spec: internals.chartParameters },
-        ChannelPage { channel: 1; backend: internals.device; spec: internals.chartParameters },
-        ChannelPage { channel: 2; backend: internals.device; spec: internals.chartParameters }
-    ]
+    readonly property ChannelPlots adc0: ChannelPlots { channel: 0; backend: internals.device; spec: internals.chartParameters }
+    readonly property ChannelPlots adc1: ChannelPlots { channel: 1; backend: internals.device; spec: internals.chartParameters }
+    readonly property ChannelPlots adc2: ChannelPlots { channel: 2; backend: internals.device; spec: internals.chartParameters }
+    mainPages: [...adc0.pages, ...adc1.pages, ...adc2.pages]
     readonly property Section connectionSection: Section {
         title: qsTr("设备连接")
         FieldRow {

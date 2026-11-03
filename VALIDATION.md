@@ -1,5 +1,12 @@
 # 验证记录
 
+## 2026-11-03：九图平铺与标签精简
+
+- 三规格页面的 ChannelPlots 只持有三张 Page 及原有接线，主页面直接展开三个通道的列表；无内层 TabPane，不增加后端或数据缓存。副标题按配置频率生成，尺寸和通道数不再重复显示于设备标签。
+- Windows Qt 6.11.2/MSVC：由相邻 LiDAR_DataACQ 原 build 源码覆盖接入，Release 主程序与 laser_assembly 增量构建通过，无 C++ 编译警告；CMake 生成的本模块 qmllint 参数检查通过。
+- 主程序 D3D11 装配验证运行 8 秒自然退出 0、stderr 为空：TenK 九个页面、三 ADC 独立数据接收及历史保留通过，截图确认单行九标签。测试未连接设备。FourK/FiveK 本轮编译及 lint，未单独运行三规格 smoke；旧 smoke 的页面数量断言同步为九。
+- 证据在 LiDAR_DataACQ/build：configure-flat-charts.log、build-flat-charts.log、lint-flat-charts.log、assembly-flat-charts.stdout.log / stderr.log、flat-charts.png。仅本地更新原入口，不推送、不发 Release，不改板端或采集逻辑。
+
 ## 2026-11-03：10 kHz FPGA 逻辑替换、重启与真实采集
 
 - 用户授权备份、改写 BOOT.BIN、重启并验证。SD 备份目录 `/media/sd-mmcblk1p1/codex_fpga10k_backup_20261103_161849` 保留旧 BOOT.BIN、SHA256 和恢复说明；本机副本及证据位于 `out/fpga-10k-20261103/`。旧镜像 SHA256 为 `079bcca7d0297f133184f1d7fd568c61ef7f17b7ea87ad89ec0ff151b34ca75b`。

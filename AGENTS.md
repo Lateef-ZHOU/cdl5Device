@@ -1,5 +1,7 @@
 # cdl5Device 维护入口
 
+2026-11-03 图窗整理（用户定）：FourK/FiveK/TenK 全部平铺九个同级页，按 ADC0/1/2 各自的功率谱、径向风、风廓线排列，不再嵌套通道 TabPane。统一标题为 ADCn·图名，设备副标题缩为网口·UDP·对应频率。保持后端、历史、收帧和处理接线；仅本地提交，主程序通过源码覆盖验证，证据见 VALIDATION。
+
 2026-11-03 FPGA 更新验收：用户授权备份、替换并重启。活动逻辑已从 P8/5 kHz/450×128 改为 P7/10 kHz/240×240；寄存器与一次 1 秒真实采集帧头均已核实。只替换原 BOOT.BIN 的 PL 分区及分区名称，其余启动分区、内核、设备树、驱动、系统库与 root 镜像保持；SD 与本机保留旧 BOOT.BIN。两桥接服务自动恢复，三路数据完整到达 Windows。详情、回退与验证边界见 VALIDATION；下方“尚未刷入”为此前阶段。
 
 2026-11-03 用户定：同仓提供 FourK/FiveK/TenK 三个明确类型的 UDP 官邸，规格统一在 Configuration.h，保持三 ADC、FP32 小端与 32/1024 字节边界。DMA 按活动 Profile 核对 P9/P8 的 5 lane 或 P7 的 6 lane，不改驱动 ABI、触发/取消及关闭顺序。Windows 装配由应用选择具体页面，删除旧 Cdl5Module/Cdl5ActiveCollector；本轮准许推送及更新板端 root 镜像、重启，不烧写 FPGA、不动系统/内核和 eMMC。验证进度见 VALIDATION。

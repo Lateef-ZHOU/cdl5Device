@@ -68,8 +68,7 @@ public:
     using CollectorType = Cdl5Collector<Config>;
     explicit Cdl5Device(QObject *parent)
         : Base(QStringLiteral("CDL5 采集卡"),
-               QStringLiteral("网口 · UDP · %1 kHz · %2×%3 · 三通道")
-                   .arg(Config.rateHz / 1000).arg(Config.rows).arg(Config.columns), parent)
+               QStringLiteral("网口·UDP·%1kHz").arg(Config.rateHz / 1000), parent)
     {
         static_assert(DeviceLifecycleLayer<Cdl5Device, decltype(&Cdl5Device::PreDestruction)>);
         this->setObjectName(QStringLiteral("Cdl5%1K").arg(Config.rateHz / 1000));
