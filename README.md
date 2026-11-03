@@ -1,5 +1,7 @@
 # cdl5Device
 
+2026-11-03 上传接口：官邸仍拥有唯一具体 Core；Core 继承 `Device<HandleT, CollectorT>`，Device 直接继承 Handle 并重写 onData。Core 只提供 Qt 属性、锁信号与末端预析构；不增设上传回调、状态缓存或逐包信号转发。协议、Collector 与 UI 逻辑保持。
+
 CDL5 采集卡官邸：桌面只使用 UDP；Linux 板端由 DMA Handle 接入 FPGA，BridgeCore 只转发字节。一个设备产生 ADC0、ADC1、ADC2 三路独立功率谱。
 
 页面按 ADC0、ADC1、ADC2 顺序平铺九张同级图窗，每通道依次为 `ADCn·功率谱`、`ADCn·径向风`、`ADCn·风廓线`，不再嵌套通道标签。径向风页继续包含风速和 CNR；图窗常驻和数据接线保持。设备副标题仅显示 `网口·UDP·4kHz/5kHz/10kHz` 中对应规格，不在标签重复尺寸和通道数。
@@ -94,3 +96,6 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 每个 ADC 标签内有功率谱、径向风速/CNR、风廓线三个常驻图窗。距离以交付上位机 frame_decoder.py 的 gate_distance_m 为准，以每门起点为坐标。P8 混合模式前 200 门从 0 m 起每 15 m，接下来的 150 门从 3000 m 起每 60 m，最后 100 门从 12000 m 起每 150 m。帧头 word7 的 range_mode 置位时按 60 m 等间隔处理。P9 混合模式最后有 150 门。P7 只包含前 200 门×15 m 和后 40 门×60 m，统一模式为 240 门×60 m。
 
 工作线程逐通道拟合谱峰。CNR 不依赖零风速频率。风速换算使用帧头 word4 的起始 bin、500 MSPS、512 点 FFT 和 1550 nm 波长。程序启动时从 exe 旁的 cdl5-wind.ini 读取 [wind] 节的 ADC0、ADC1、ADC2（MHz）。未填写或参考频率超出本帧频带时，该通道仅显示 CNR，风速缺测。每路独立使用四束实测朝向，在任务同步点求 ENU，按逐门斜距乘平均仰角的正弦生成高度。无朝向、未凑齐四束或几何退化时不产生风廓线。勾选保存后使用 AcqSaver 的非均匀接口保存已标定通道及真实 Range/High。
+
+
+2026-11-03 验证：Windows 主程序 Release/页面装配通过；Linux Qt Core 6.8.3 UDP、DMA 连接与采集测试 3/3 通过。接口联调使用相邻源码覆盖，新依赖固定为本地提交，尚未推送；未连接实物设备或更新板卡。

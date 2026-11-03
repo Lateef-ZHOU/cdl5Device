@@ -59,11 +59,68 @@ auto makeCdl5Processor(Self *self)
     };
 }
 
-// Specification is a compile-time value. The final QObject owns its worker lifetime.
-template<Cdl5::Configuration Config>
-class Cdl5Device : public DAQDevice<PcapHandle, Cdl5Collector<Config>>
+// Qt 元对象末端：Handle 与 Device 共用一个 QObject；析构先等上传退出。
+class Cdl5FourKCore final : public Device<PcapHandle, Cdl5Collector<Cdl5::FourK>>
 {
-    using Base = DAQDevice<PcapHandle, Cdl5Collector<Config>>;
+    Q_OBJECT
+    Q_PROPERTY(QString displayName READ displayName CONSTANT)
+    Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
+    Q_PROPERTY(QObject *logSource READ logSourceObject CONSTANT)
+    Q_PROPERTY(bool isOpen READ isOpen)
+    Q_PROPERTY(bool isLocked READ isLocked)
+    Q_PROPERTY(QString holder READ holder)
+public:
+    using Device::Device;
+    ~Cdl5FourKCore() override { PreDestruction(); }
+Q_SIGNALS:
+    void lockChanged(HandleCore::ResourcePhase phase) override;
+private:
+    void PreDestruction() noexcept final { Device::PreDestruction(); }
+};
+
+// Qt 元对象末端：Handle 与 Device 共用一个 QObject；析构先等上传退出。
+class Cdl5FiveKCore final : public Device<PcapHandle, Cdl5Collector<Cdl5::FiveK>>
+{
+    Q_OBJECT
+    Q_PROPERTY(QString displayName READ displayName CONSTANT)
+    Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
+    Q_PROPERTY(QObject *logSource READ logSourceObject CONSTANT)
+    Q_PROPERTY(bool isOpen READ isOpen)
+    Q_PROPERTY(bool isLocked READ isLocked)
+    Q_PROPERTY(QString holder READ holder)
+public:
+    using Device::Device;
+    ~Cdl5FiveKCore() override { PreDestruction(); }
+Q_SIGNALS:
+    void lockChanged(HandleCore::ResourcePhase phase) override;
+private:
+    void PreDestruction() noexcept final { Device::PreDestruction(); }
+};
+
+// Qt 元对象末端：Handle 与 Device 共用一个 QObject；析构先等上传退出。
+class Cdl5TenKCore final : public Device<PcapHandle, Cdl5Collector<Cdl5::TenK>>
+{
+    Q_OBJECT
+    Q_PROPERTY(QString displayName READ displayName CONSTANT)
+    Q_PROPERTY(QString subtitle READ subtitle CONSTANT)
+    Q_PROPERTY(QObject *logSource READ logSourceObject CONSTANT)
+    Q_PROPERTY(bool isOpen READ isOpen)
+    Q_PROPERTY(bool isLocked READ isLocked)
+    Q_PROPERTY(QString holder READ holder)
+public:
+    using Device::Device;
+    ~Cdl5TenKCore() override { PreDestruction(); }
+Q_SIGNALS:
+    void lockChanged(HandleCore::ResourcePhase phase) override;
+private:
+    void PreDestruction() noexcept final { Device::PreDestruction(); }
+};
+
+// Specification is a compile-time value. The final QObject owns its worker lifetime.
+template<Cdl5::Configuration Config, typename Core>
+class Cdl5Device : public DAQDevice<Core>
+{
+    using Base = DAQDevice<Core>;
 public:
     using CollectorType = Cdl5Collector<Config>;
     explicit Cdl5Device(QObject *parent)
@@ -100,7 +157,7 @@ class Cdl5FourKDevice final
 #ifdef Q_MOC_RUN
     : public DAQDeviceBase
 #else
-    : public Cdl5Device<Cdl5::FourK>
+    : public Cdl5Device<Cdl5::FourK, Cdl5FourKCore>
 #endif
 {
     Q_OBJECT
@@ -109,7 +166,7 @@ class Cdl5FourKDevice final
     QML_UNCREATABLE("由对应 CDL5 QML 官邸持有")
     Q_PROPERTY(QVariantMap connectionParameters READ connectionParameters CONSTANT)
     Q_PROPERTY(QVariantMap acquisitionParameters READ acquisitionParameters CONSTANT)
-    using Base = Cdl5Device<Cdl5::FourK>;
+    using Base = Cdl5Device<Cdl5::FourK, Cdl5FourKCore>;
 public:
     static Cdl5FourKDevice *qmlAttachedProperties(QObject *owner) { return new Cdl5FourKDevice(owner); }
     explicit Cdl5FourKDevice(QObject *parent) : Base(parent) { this->startProcessing(); }
@@ -139,7 +196,7 @@ class Cdl5FiveKDevice final
 #ifdef Q_MOC_RUN
     : public DAQDeviceBase
 #else
-    : public Cdl5Device<Cdl5::FiveK>
+    : public Cdl5Device<Cdl5::FiveK, Cdl5FiveKCore>
 #endif
 {
     Q_OBJECT
@@ -148,7 +205,7 @@ class Cdl5FiveKDevice final
     QML_UNCREATABLE("由对应 CDL5 QML 官邸持有")
     Q_PROPERTY(QVariantMap connectionParameters READ connectionParameters CONSTANT)
     Q_PROPERTY(QVariantMap acquisitionParameters READ acquisitionParameters CONSTANT)
-    using Base = Cdl5Device<Cdl5::FiveK>;
+    using Base = Cdl5Device<Cdl5::FiveK, Cdl5FiveKCore>;
 public:
     static Cdl5FiveKDevice *qmlAttachedProperties(QObject *owner) { return new Cdl5FiveKDevice(owner); }
     explicit Cdl5FiveKDevice(QObject *parent) : Base(parent) { this->startProcessing(); }
@@ -178,7 +235,7 @@ class Cdl5TenKDevice final
 #ifdef Q_MOC_RUN
     : public DAQDeviceBase
 #else
-    : public Cdl5Device<Cdl5::TenK>
+    : public Cdl5Device<Cdl5::TenK, Cdl5TenKCore>
 #endif
 {
     Q_OBJECT
@@ -187,7 +244,7 @@ class Cdl5TenKDevice final
     QML_UNCREATABLE("由对应 CDL5 QML 官邸持有")
     Q_PROPERTY(QVariantMap connectionParameters READ connectionParameters CONSTANT)
     Q_PROPERTY(QVariantMap acquisitionParameters READ acquisitionParameters CONSTANT)
-    using Base = Cdl5Device<Cdl5::TenK>;
+    using Base = Cdl5Device<Cdl5::TenK, Cdl5TenKCore>;
 public:
     static Cdl5TenKDevice *qmlAttachedProperties(QObject *owner) { return new Cdl5TenKDevice(owner); }
     explicit Cdl5TenKDevice(QObject *parent) : Base(parent) { this->startProcessing(); }

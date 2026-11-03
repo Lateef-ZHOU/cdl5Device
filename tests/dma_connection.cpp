@@ -46,12 +46,13 @@ DmaParameters parameters()
 class ProbeHandle final : public DmaHandle
 {
 public:
-    ProbeHandle() : DmaHandle([](const QByteArray &, RxTime) {}) {}
+    ProbeHandle() = default;
     ~ProbeHandle() override { stop(); }
     QSemaphore connected;
     int errorCount = 0;
     int closeCount = 0;
 private:
+    void onData(const QByteArray &, RxTime) override {}
     QSemaphore wake;
     void connectionChanged(HandleCore::ResourcePhase phase) override
     {

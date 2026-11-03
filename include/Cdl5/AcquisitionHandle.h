@@ -20,12 +20,12 @@
 
 // Only the worker touches FPGA registers and the DMA descriptor. Owner-thread sends
 // replace the pending request; stop() wakes that same worker and joins it via HandleCore.
-class Cdl5DmaHandle final : public DmaHandle
+class Cdl5DmaHandle : public DmaHandle
 {
     Q_OBJECT
 public:
     using DmaHandle::DmaHandle;
-    ~Cdl5DmaHandle() override { stop(); }
+    ~Cdl5DmaHandle() override = default;
     static DmaParameters parameters(std::string path = "/dev/cdl5_dma_proxy")
     {
         return {std::move(path), "/dev/mem", 0x80002000, 4096};

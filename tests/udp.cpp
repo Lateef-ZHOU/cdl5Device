@@ -1,3 +1,4 @@
+#include "CallbackHandle.h"
 #include <PcapHandle.h>
 #include <QCoreApplication>
 #include <QObject>
@@ -41,7 +42,7 @@ int main(int argc, char **argv)
     }
 
     int diagnostics = 0;
-    PcapHandle handle([](const QByteArray &, RxTime) {});
+    CallbackHandle<PcapHandle> handle([](const QByteArray &, RxTime) {});
     QObject::connect(&handle, &PcapHandle::logMessage, &app,
                      [&](const QString &) { ++diagnostics; });
     check(!handle.send(QByteArray("offline")), "unconnected transport rejects send");

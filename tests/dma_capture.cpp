@@ -1,3 +1,4 @@
+#include "CallbackHandle.h"
 #include "DmaFixture.h"
 int main(int argc,char **argv)
 {
@@ -5,7 +6,7 @@ int main(int argc,char **argv)
     QCoreApplication app(argc,argv);
     for(int gates:{500,450,240}) {
         prepare(gates);
-        Cdl5DmaHandle handle([&](const QByteArray &bytes,RxTime) {
+        CallbackHandle<Cdl5DmaHandle> handle([&](const QByteArray &bytes,RxTime) {
             chunks.push_back(bytes);
             if(chunks.size()==static_cast<size_t>(gates==500?2001:1801)) delivered.release();
         });
@@ -35,7 +36,7 @@ int main(int argc,char **argv)
     regs[0x84/4] = (regs[0x84/4] & ~(15u << 24)) | (5u << 24);
     {
         QSemaphore rejected;
-        Cdl5DmaHandle handle([](const QByteArray &,RxTime) { check(false,"invalid geometry cannot upload"); });
+        CallbackHandle<Cdl5DmaHandle> handle([](const QByteArray &,RxTime) { check(false,"invalid geometry cannot upload"); });
         QObject::connect(&handle,&Cdl5DmaHandle::connectionChanged,&handle,[](HandleCore::ResourcePhase phase) {
             if(phase == HandleCore::ResourcePhase::Acquired) connected.release();
         },Qt::DirectConnection);
@@ -49,7 +50,7 @@ int main(int argc,char **argv)
     }
     for(auto fail:{Fault::Start,Fault::Wait,Fault::Read,Fault::ShortTransfer}) {
         prepare(500);fault=fail;QSemaphore error;
-        Cdl5DmaHandle handle([](const QByteArray &,RxTime) { check(false,"failed capture cannot upload"); });
+        CallbackHandle<Cdl5DmaHandle> handle([](const QByteArray &,RxTime) { check(false,"failed capture cannot upload"); });
         QObject::connect(&handle,&Cdl5DmaHandle::connectionChanged,&handle,[](HandleCore::ResourcePhase phase) { if(phase == HandleCore::ResourcePhase::Acquired)connected.release(); },Qt::DirectConnection);
         QObject::connect(&handle,&Cdl5DmaHandle::logMessage,&handle,[&](const QString &s) {
             if(s.startsWith("DMA")||s.startsWith("Unexpected")) error.release();
