@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <functional>
-#include <Cdl5/DmaHandle.h>
+#include <DmaHandle.h>
 
 #include <algorithm>
 #include <array>

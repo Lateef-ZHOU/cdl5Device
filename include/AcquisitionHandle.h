@@ -17,7 +17,7 @@
 #include <QScopeGuard>
 #include <cdl5-dma-proxy.h>
 #include "DmaHandle.h"
-#include "Protocol.h"
+#include "Cdl5Protocol.h"
 
 // Only the worker touches FPGA registers and the DMA descriptor. Owner-thread sends
 // replace the pending request; stop() wakes that same worker and joins it via HandleCore.

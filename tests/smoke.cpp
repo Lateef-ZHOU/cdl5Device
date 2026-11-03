@@ -7,7 +7,7 @@
 #include <memory>
 #include <QPointer>
 #include <QTimer>
-#include <Cdl5/Device.h>
+#include <Device.h>
 
 Q_IMPORT_QML_PLUGIN(LidarUIPlugin)
 Q_IMPORT_QML_PLUGIN(LidarChartsPlugin)

@@ -22,7 +22,7 @@ compile() {
 compile /src/tests/dma_connection.cpp -Wl,--wrap=sysconf -o /out/cdl5_dma_connection_probe-arm64
 /work/hostqt/libexec/moc -DQT_NO_KEYWORDS -I/src/include -I/handle/include -I/proxy \
     -I"$prefix/include" -I"$prefix/include/QtCore" \
-    /src/include/Cdl5/AcquisitionHandle.h -o /out/moc_AcquisitionHandle.cpp
+    /src/include/AcquisitionHandle.h -o /out/moc_AcquisitionHandle.cpp
 /work/hostqt/libexec/moc -DQT_NO_KEYWORDS -I/handle/include \
     -I"$prefix/include" -I"$prefix/include/QtCore" \
     /handle/include/ResourcePhase.h -o /out/moc_ResourcePhase.cpp

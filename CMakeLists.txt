@@ -34,14 +34,14 @@ if(CDL5_WITH_UDP)
 endif()
 
 if(CDL5_WITH_DMA)
-    add_library(Cdl5Dma STATIC include/Cdl5/AcquisitionHandle.h)
+    add_library(Cdl5Dma STATIC include/AcquisitionHandle.h)
     set_target_properties(Cdl5Dma PROPERTIES AUTOMOC ON)
     add_library(Lidar::Cdl5Dma ALIAS Cdl5Dma)
     target_include_directories(Cdl5Dma PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CDL5_DMA_PROXY_SOURCE_DIR}")
     target_sources(Cdl5Dma PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/include/Cdl5/DmaConnection.h"
-        "${CMAKE_CURRENT_SOURCE_DIR}/include/Cdl5/DmaHandle.h")
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/DmaConnection.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/DmaHandle.h")
     target_link_libraries(Cdl5Dma PUBLIC Lidar::HandleCore)
     target_compile_definitions(Cdl5Dma PUBLIC QT_NO_KEYWORDS _FILE_OFFSET_BITS=64)
     target_compile_options(Cdl5Dma PRIVATE -Wall -Wextra -Wpedantic -Werror)

@@ -1,4 +1,4 @@
-#include <Cdl5/Device.h>
+#include <Device.h>
 #include "FakePcap.h"
 #include <QCoreApplication>
 #include <QTemporaryDir>

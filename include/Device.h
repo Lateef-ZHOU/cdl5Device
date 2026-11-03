@@ -6,9 +6,9 @@
 #include <QDateTime>
 #include <QtQml/qqmlregistration.h>
 #include <QVariantMap>
-#include <Device/DAQ/DAQDevice.h>
-#include <Device/PcapForm.h>
-#include <Acquisition/AcqSaver.h>
+#include <DAQDevice.h>
+#include <PcapForm.h>
+#include <AcqSaver.h>
 #include "Collector.h"
 #include "WindProcessing.h"
 

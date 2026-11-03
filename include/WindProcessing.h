@@ -7,8 +7,8 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QSettings>
-#include <Algorithm/Wind/RadialWind.h>
-#include <Algorithm/Wind/WindProfile.h>
+#include <RadialWind.h>
+#include <WindProfile.h>
 #include "Collector.h"
 
 namespace Cdl5 {

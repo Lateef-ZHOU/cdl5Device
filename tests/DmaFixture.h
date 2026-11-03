@@ -1,5 +1,5 @@
 #pragma once
-#include <Cdl5/AcquisitionHandle.h>
+#include <AcquisitionHandle.h>
 #include <QCoreApplication>
 #include <QSemaphore>
 #include <array>

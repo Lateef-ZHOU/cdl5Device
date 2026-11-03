@@ -1,5 +1,5 @@
-#include <Cdl5/Collector.h>
-#include <Cdl5/WindProcessing.h>
+#include <Collector.h>
+#include <WindProcessing.h>
 #include <QFile>
 #include <numbers>
 #include <cstdlib>

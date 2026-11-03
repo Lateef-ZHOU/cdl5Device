@@ -5,8 +5,8 @@
 #include <memory>
 #include <utility>
 #include <QVector>
-#include <Device/DAQ/DAQCollector.h>
-#include "Protocol.h"
+#include <DAQCollector.h>
+#include "Cdl5Protocol.h"
 #include "Configuration.h"
 
 // Three FPGA specifications share the same record decoding and retry lifecycle.
