@@ -52,19 +52,10 @@ ModulePage {
             },
             Page {
                 title: qsTr("ADC%1·风廓线").arg(adc.channel)
-                contentItem: ColumnLayout {
-                    Label {
-                        id: profileNote
-                        Layout.fillWidth: true
-                        text: qsTr("等待已标定的四束采集结果")
-                    }
-                    NonuniformWindBarbItem {
-                        id: barbs
-                        objectName: "barbsADC" + adc.channel
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1, maxHeight: adc.spec.rangeMaximum})
-                    }
+                contentItem: NonuniformWindBarbItem {
+                    id: barbs
+                    objectName: "barbsADC" + adc.channel
+                    configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1, maxHeight: adc.spec.rangeMaximum})
                 }
             }
         ]
@@ -82,7 +73,7 @@ ModulePage {
                     radialNote.text = qsTr("CNR 已更新。风速需在 cdl5-wind.ini 填入谱带内的零风速参考频率。")
             }
             function onProfileReady(channel, frame) {
-                if (channel === adc.channel && barbs.appendColumn(frame)) profileNote.visible = false
+                if (channel === adc.channel) barbs.appendColumn(frame)
             }
         }
     }

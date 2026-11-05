@@ -146,3 +146,6 @@ DMA capture/connLoop 与测试直接声明 std::function，删除 Sink/DataCallb
 2026-11-03 用户定：网口连接区仅保留网卡选择和连接/断开，删除 IP、端口等固定参数展示及对应 QML 参数字段；实际连接配置、校验、ARP 和收发关闭行为保持。
 
 Windows 验证：通过主程序本地源码覆盖增量构建，五个网口官邸 qmllint 目标成功；仍有 QObject 属性类型的既有静态提示。八秒离屏冒烟通过，仅既有字体提示；未进行硬件操作或 Linux 验证。证据：LiDAR_DataACQ/build/build-network-ui.log、smoke-network-ui.json。
+
+
+2026-11-05（用户定）：4/5/10 kHz各ADC风廓线页删除等待提示、占位布局及profileNote显隐接线。主程序Release增量构建与八秒离屏冒烟通过；保留既有Qt C4702及字体提示，无新增运行诊断。证据在LiDAR_DataACQ/build/build-profile-note-library.log、build-profile-note.log、smoke-profile-note.json。未做硬件采集；原启动入口更新，未推送。
