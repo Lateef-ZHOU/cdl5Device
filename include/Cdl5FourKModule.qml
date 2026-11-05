@@ -93,16 +93,15 @@ ModulePage {
                 onCommitted: i => root.networkInterfaceIndex = i
             }
         }
-        RowLayout {
-            Button {
-                Layout.fillWidth: true
+        DoubleButtonRow {
+            firstAction: Action {
                 text: qsTr("连接")
-                onClicked: {
+                onTriggered: {
                     if (internals.device.open(root.networkInterfaceIndex))
                         root.logMessage(qsTr("连接请求已提交"))
                 }
             }
-            Button { Layout.fillWidth: true; text: qsTr("断开"); onClicked: internals.device.close() }
+            secondAction: Action { text: qsTr("断开"); onTriggered: internals.device.close() }
         }
     }
     acquisitionParameters: internals.device.acquisitionParameters
