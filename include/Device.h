@@ -135,6 +135,7 @@ public:
     QVariantMap chartParameters() const
     { return {{"rows", Config.rows}, {"columns", Config.columns}, {"channels", Config.channels},
               {"rangeMaximum", Config.rangeMaximum},
+              {"ranges", QVariant::fromValue(Cdl5::gateRanges(Config.profile, false, Config.rows))},
               {"powerMax", static_cast<double>(std::numeric_limits<float>::max())}}; }
     bool open(int interfaceIndex)
     {

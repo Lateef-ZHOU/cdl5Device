@@ -48,6 +48,7 @@ ModulePage {
                                 windMax: 60,
                                 cnrMin: -50,
                                 cnrMax: 50,
+                                ranges: adc.spec.ranges,
                                 rangeMinimum: 0,
                                 rangeMaximum: adc.spec.rangeMaximum
                             })
