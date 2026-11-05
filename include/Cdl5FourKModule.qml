@@ -33,26 +33,18 @@ ModulePage {
             },
             Page {
                 title: qsTr("ADC%1·径向风").arg(adc.channel)
-                contentItem: ColumnLayout {
-                    HintText {
-                        id: radialNote
-                        text: qsTr("等待接收功率谱")
-                    }
-                    NonuniformWind2DView {
-                        id: radial
-                        objectName: "radialADC" + adc.channel
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        specification: ({
-                                windMin: -60,
-                                windMax: 60,
-                                cnrMin: -50,
-                                cnrMax: 50,
-                                ranges: adc.spec.ranges,
-                                rangeMinimum: 0,
-                                rangeMaximum: adc.spec.rangeMaximum
-                            })
-                    }
+                contentItem: NonuniformWind2DView {
+                    id: radial
+                    objectName: "radialADC" + adc.channel
+                    specification: ({
+                            windMin: -60,
+                            windMax: 60,
+                            cnrMin: -50,
+                            cnrMax: 50,
+                            ranges: adc.spec.ranges,
+                            rangeMinimum: 0,
+                            rangeMaximum: adc.spec.rangeMaximum
+                        })
                 }
             },
             Page {
@@ -80,9 +72,8 @@ ModulePage {
                     return;
                 radial.updateWS(ranges, speeds);
                 radial.updateCNR(ranges, cnr);
-                radialNote.visible = !calibrated;
                 if (!calibrated)
-                    radialNote.text = qsTr("CNR 已更新。风速需在 cdl5-wind.ini 填入谱带内的零风速参考频率。");
+                    root.logMessage(qsTr("ADC%1：CNR 已更新。风速需在 cdl5-wind.ini 填入谱带内的零风速参考频率。").arg(channel));
             }
             function onProfileReady(channel, frame) {
                 if (channel === adc.channel)

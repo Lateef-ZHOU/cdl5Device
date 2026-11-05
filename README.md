@@ -150,3 +150,10 @@ Collector 的 onFeed 接收 optional<QByteArray> 的 const 引用，由本型号
 三个规格的 chartParameters 提供 ranges，复用已有 gateRanges(profile, false, rows) 生成各规格混合距离门，供图表初始零值与逐门悬停使用；不再以两端点代替整个剖面。初始混合模式只是连接前显示默认值，真实回报仍依据帧头的 range_mode 整帧替换，支持切换到均匀60 m模式。Collector、处理、保存及风廓线保持。
 
 验证：2026-11-05 Windows Qt 6.11.2 / MSVC 增量构建通过；UICore CTest 3/3、ChartCore nonuniform 1/1、主程序八秒桌面冒烟及四窗装配通过。装配检查覆盖三规格、三通道的18张初始风速/CNR图的内部及分段门位悬停。未连接硬件、未推送。
+
+
+### 2026-11-05 连接间距、累积默认值与径向风页面整理
+
+三个规格删除径向风页的“等待接收功率谱”提示和外层 ColumnLayout，直接放置非均匀径向风图。未标定时仍由官邸通过 logMessage 报告缺少零风速参考频率，图中不显示诊断条；算法、默认逐门零值、数据及风廓线逻辑保持。
+
+主程序 Windows Release 增量构建、八秒桌面冒烟及四窗口装配检查通过；运行 stderr 为空，保留既有 CDL5/Qt 生成代码 C4702 编译警告。仅本地验证，未连接硬件、未推送。
