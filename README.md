@@ -141,3 +141,7 @@ Collector 的 onFeed 接收 optional<QByteArray> 的 const 引用，由本型号
 ### 2026-11-05 公共视觉与连接布局
 
 三种规格的连接区使用 UICore ConnectionSection；规格、枚举、命令及日志不变。 本轮仅本地整理，未推送；Windows 集成验证记录见主程序维护操作。
+
+### 2026-11-05 径向风说明文字
+
+三个规格的径向风提示统一使用 UICore HintText，按可用宽度换行并限制自然宽度。原提示内容、标定可见条件和收数接线保持。主程序 Windows 增量构建及八秒冒烟通过；仅本地提交，未推送。

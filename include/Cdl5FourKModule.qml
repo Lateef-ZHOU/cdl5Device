@@ -34,11 +34,9 @@ ModulePage {
             Page {
                 title: qsTr("ADC%1·径向风").arg(adc.channel)
                 contentItem: ColumnLayout {
-                    Label {
+                    HintText {
                         id: radialNote
-                        Layout.fillWidth: true
                         text: qsTr("等待接收功率谱")
-                        wrapMode: Text.Wrap
                     }
                     NonuniformWind2DView {
                         id: radial
