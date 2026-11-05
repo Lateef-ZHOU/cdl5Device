@@ -118,8 +118,8 @@ class Cdl5Device : public DAQDevice<Core>
 public:
     using CollectorType = Cdl5Collector<Config>;
     explicit Cdl5Device(QObject *parent)
-        : Base(QStringLiteral("CDL5 采集卡"),
-               QStringLiteral("网口·UDP·%1kHz").arg(Config.rateHz / 1000), parent)
+        : Base(QStringLiteral("采集·国实CDL5"),
+               QStringLiteral("%1 kHz").arg(Config.rateHz / 1000), parent)
     {
         static_assert(DeviceLifecycleLayer<Cdl5Device, decltype(&Cdl5Device::PreDestruction)>);
         this->setObjectName(QStringLiteral("Cdl5%1K").arg(Config.rateHz / 1000));
