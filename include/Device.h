@@ -3,7 +3,14 @@
 #include <memory>
 #include <limits>
 #include <optional>
+#include <QCoreApplication>
 #include <QDateTime>
+#include <QDir>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSaveFile>
+#include <QSettings>
 #include <QtQml/qqmlregistration.h>
 #include <QVariantMap>
 #include <DAQDevice.h>
@@ -12,30 +19,71 @@
 #include "Collector.h"
 #include "WindProcessing.h"
 
+namespace Cdl5 {
+// One descriptor per received frame, beside the three unchanged binary64 payloads.
+template<class CollectorT>
+void saveSpectrumMetadata(const CollectorT &frame, const QDir &root, const QString &stem)
+{
+    constexpr auto config = CollectorT::Specification;
+    const QDir dir(root.filePath("Rawspec/" + frame.context().sessionDir));
+    QJsonArray channels;
+    for (int channel = 0; channel < config.channels; ++channel) {
+        const auto &range = config.rangeChannels[channel];
+        const auto tag = channelTag(config, channel);
+        channels.append(QJsonObject{{"tag", tag}, {"file", tag + "_" + stem + ".bin"},
+            {"adc", 0}, {"rangeStartM", 0}, {"gateSpacingM", range.spacingM},
+            {"validSamplesPerGate", range.validSamples}});
+    }
+    const QJsonObject metadata{{"configuredPlVersion", "0x26110401"},
+        {"profile", frame.profile()}, {"rows", config.rows}, {"columns", config.columns},
+        {"encoding", "float64-le"}, {"layout", "range-gate-major"},
+        {"sampleRateHz", SampleRateHz}, {"fftLength", FftLength}, {"firstBin", frame.firstBin()},
+        {"triggerPeriodTicks", qint64(frame.triggerPeriodTicks())},
+        {"accumulationCount", qint64(frame.accumulationCount())}, {"channels", channels}};
+    const auto bytes = QJsonDocument(metadata).toJson();
+    QSaveFile file(dir.filePath(stem + ".json"));
+    if (!dir.mkpath(QStringLiteral("."))) {
+        qWarning().noquote() << "Cannot create spectrum metadata directory:" << dir.path();
+        return;
+    }
+    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit())
+        qWarning().noquote() << "Cannot save spectrum metadata:" << file.fileName() << file.errorString();
+}
+} // namespace Cdl5
+
 template<class CollectorT, class Self>
 auto makeCdl5Processor(Self *self)
 {
     using BeamRing = std::array<WindProfile::Input, WindProfile::kBeams>;
-    return [self, reference = Cdl5::readReferenceMHz(), beams = std::array<BeamRing, CollectorT::Specification.channels>{},
-                   lastRanges = QVector<double>{}, lastBin = -1, cursor = 0]
+    const QSettings settings(QDir(QCoreApplication::applicationDirPath()).filePath("cdl5-wind.ini"),
+                             QSettings::IniFormat);
+    return [self, reference = Cdl5::readReferenceMHz(CollectorT::Specification, settings),
+            beams = std::array<BeamRing, CollectorT::Specification.channels>{},
+            lastUniform = false, lastBin = -1, cursor = 0]
                   (const std::shared_ptr<const CollectorT> &frame) mutable {
         if (!frame || !frame->settled()) return;
+        constexpr auto config = CollectorT::Specification;
         const auto &context = frame->context();
-        const auto ranges = Cdl5::gateRanges(frame->profile(), frame->uniformRange(), frame->Rows);
-        if (ranges != lastRanges || frame->firstBin() != lastBin || !context.pose) {
+        const bool uniform = !config.adc0Multires() && frame->uniformRange();
+        if (uniform != lastUniform || frame->firstBin() != lastBin || !context.pose) {
             beams = {};
             cursor = 0;
-            lastRanges = ranges;
+            lastUniform = uniform;
             lastBin = frame->firstBin();
         }
+        const auto stem = context.saveRoot ? AcqSaver::fileStem(frame->frameTime()) : QString{};
+        const auto sharedRanges = config.adc0Multires()
+            ? QVector<double>{} : Cdl5::channelRanges(config, 0, uniform);
         QVector<AcqSaver::NonuniformRadialChannel> channels;
-        for (int channel = 0; channel != CollectorT::Specification.channels; ++channel) {
+        for (int channel = 0; channel != config.channels; ++channel) {
+            const auto ranges = config.adc0Multires()
+                ? Cdl5::channelRanges(config, channel, uniform) : sharedRanges;
             const auto &values = frame->constFrame()[channel];
-            const auto tag = QString("ADC%1").arg(channel);
+            const auto tag = Cdl5::channelTag(config, channel);
             Q_EMIT self->spectrumReady(channel, values);
             if (context.saveRoot)
                 AcqSaver::saveSpec(*context.saveRoot, context.sessionDir,
-                    AcqSaver::fileStem(frame->frameTime()), values, tag);
+                    stem, values, tag);
             if (ranges.isEmpty()) continue;
             auto [radial, calibrated] = Cdl5::radial(values, frame->Rows, frame->Columns,
                                                     frame->firstBin(), reference[channel]);
@@ -53,8 +101,10 @@ auto makeCdl5Processor(Self *self)
             }
         }
         cursor = (cursor + 1) % WindProfile::kBeams;
+        if constexpr (config.adc0Multires())
+            if (context.saveRoot) Cdl5::saveSpectrumMetadata(*frame, *context.saveRoot, stem);
         if (!channels.isEmpty())
-            AcqSaver::saveRadialWind(*context.saveRoot, context.sessionDir, AcqSaver::fileStem(frame->frameTime()),
+            AcqSaver::saveRadialWind(*context.saveRoot, context.sessionDir, stem,
                                      AcqSaver::timeStem(frame->frameTime()), std::move(channels));
     };
 }
@@ -94,7 +144,7 @@ private:
 };
 
 // Qt 元对象末端：Handle 与 Device 共用一个 QObject；析构先等上传退出。
-class Cdl5TenKCore final : public Device<PcapHandle, Cdl5Collector<Cdl5::TenK>>
+class Cdl5TenKCore final : public Device<PcapHandle, Cdl5Collector<Cdl5::TenKAdc0>>
 {
     Q_OBJECT
     Q_PROPERTY(QString displayName MEMBER displayName CONSTANT)
@@ -132,11 +182,18 @@ public:
         return {{"accumMin", 1}, {"accumMax", Config.maxAccumSeconds()}, {"accumDefault", 1},
                 {"saveDirDefault", QUrl::fromLocalFile(QDir::currentPath())}};
     }
-    QVariantMap chartParameters() const
-    { return {{"rows", Config.rows}, {"columns", Config.columns}, {"channels", Config.channels},
-              {"rangeMaximum", Config.rangeMaximum},
-              {"ranges", QVariant::fromValue(Cdl5::gateRanges(Config.profile, false, Config.rows))},
-              {"powerMax", static_cast<double>(std::numeric_limits<float>::max())}}; }
+    QVariantMap chartParameters(int channel = 0) const
+    {
+        if (channel < 0 || channel >= Config.channels) return {};
+        const int step = Config.rangeChannels[channel].spacingM;
+        auto name = Cdl5::channelTag(Config, channel);
+        name.replace(u'_', u'·');
+        return {{"rows", Config.rows}, {"columns", Config.columns}, {"channels", Config.channels},
+                {"channelName", name}, {"rangeStep", step},
+                {"rangeMaximum", step > 0 ? step * Config.rows : Config.rangeMaximum},
+                {"ranges", QVariant::fromValue(Cdl5::channelRanges(Config, channel, false))},
+                {"powerMax", static_cast<double>(std::numeric_limits<float>::max())}};
+    }
     bool open(int interfaceIndex)
     {
         const auto params = PcapForm::parseParameters(this->device(), interfaceIndex,
@@ -230,7 +287,7 @@ class Cdl5TenKDevice final
 #ifdef Q_MOC_RUN
     : public DAQDeviceBase
 #else
-    : public Cdl5Device<Cdl5::TenK, Cdl5TenKCore>
+    : public Cdl5Device<Cdl5::TenKAdc0, Cdl5TenKCore>
 #endif
 {
     Q_OBJECT
@@ -239,12 +296,12 @@ class Cdl5TenKDevice final
     QML_UNCREATABLE("由对应 CDL5 QML 官邸持有")
     Q_PROPERTY(QVariantMap connectionParameters READ connectionParameters CONSTANT)
     Q_PROPERTY(QVariantMap acquisitionParameters READ acquisitionParameters CONSTANT)
-    using Base = Cdl5Device<Cdl5::TenK, Cdl5TenKCore>;
+    using Base = Cdl5Device<Cdl5::TenKAdc0, Cdl5TenKCore>;
 public:
     static Cdl5TenKDevice *qmlAttachedProperties(QObject *owner) { return new Cdl5TenKDevice(owner); }
     explicit Cdl5TenKDevice(QObject *parent) : Base(parent) { this->startProcessing(); }
     ~Cdl5TenKDevice() override { PreDestruction(); }
-    Q_INVOKABLE QVariantMap chartParameters() const { return Base::chartParameters(); }
+    Q_INVOKABLE QVariantMap chartParameters(int channel = 0) const { return Base::chartParameters(channel); }
 Q_SIGNALS:
     void spectrumReady(int channel, const QVector<double> &values);
     void radialReady(int channel, const QVector<double> &ranges, const QVector<double> &speeds,

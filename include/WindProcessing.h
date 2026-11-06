@@ -4,8 +4,6 @@
 #include <limits>
 #include <optional>
 #include <utility>
-#include <QCoreApplication>
-#include <QDir>
 #include <QSettings>
 #include <RadialWind.h>
 #include <WindProfile.h>
@@ -24,21 +22,41 @@ inline QVector<double> gateRanges(int profile, bool uniform, int rows)
     return ranges;
 }
 
-using ReferenceMHz = std::array<std::optional<double>, 3>;
-inline ReferenceMHz readReferenceMHz()
+inline QVector<double> channelRanges(Configuration config, int channel, bool uniform)
 {
-    QSettings settings(QDir(QCoreApplication::applicationDirPath()).filePath("cdl5-wind.ini"), QSettings::IniFormat);
+    if (!config.adc0Multires()) return gateRanges(config.profile, uniform, config.rows);
+    QVector<double> ranges(config.rows);
+    const int step = config.rangeChannels[channel].spacingM;
+    for (int gate = 0; gate < config.rows; ++gate)
+        ranges[gate] = gate * step;
+    return ranges;
+}
+
+inline QString channelTag(Configuration config, int channel)
+{
+    if (config.adc0Multires())
+        return QStringLiteral("ADC0_%1m").arg(config.rangeChannels[channel].spacingM);
+    return QStringLiteral("ADC%1").arg(channel);
+}
+
+using ReferenceMHz = std::array<std::optional<double>, 3>;
+inline ReferenceMHz readReferenceMHz(Configuration config, const QSettings &settings)
+{
     ReferenceMHz references{};
-    for (int channel = 0; channel < 3; ++channel) {
+    const int referenceCount = config.adc0Multires() ? 1 : config.channels;
+    for (int channel = 0; channel < referenceCount; ++channel) {
         bool ok = false;
         const double f = settings.value(QString("wind/ADC%1").arg(channel)).toDouble(&ok);
         if (ok && std::isfinite(f) && f > 0.0) references[channel] = f;
     }
+    if (config.adc0Multires()) references.fill(references.front());
     return references;
 }
 
 // 500 MSPS、512 点 FFT，波长 1550 nm。频移向上取正，与交付上位机的径向风换算一致。
-inline constexpr double BinMHz = 500.0 / 512.0;
+inline constexpr int SampleRateHz = 500000000;
+inline constexpr int FftLength = 512;
+inline constexpr double BinMHz = SampleRateHz / 1000000.0 / FftLength;
 inline std::pair<RadialWind::Result, bool> radial(const QVector<double> &spectrum, int rows, int columns,
                                 int firstBin, std::optional<double> reference)
 {

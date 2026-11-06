@@ -65,7 +65,7 @@ template<class DeviceT> void verify(QCoreApplication &app)
     });
     for(int channel=0;channel<3;++channel) {
         QString file;
-        for(const auto &path:files) if(QFileInfo(path).fileName().startsWith(QString("ADC%1_").arg(channel))) file=path;
+        for(const auto &path:files) if(QFileInfo(path).fileName().startsWith(Cdl5::channelTag(C::Specification, channel) + "_")) file=path;
         check(!file.isEmpty(),"per-channel filenames");QFile f(file);check(f.open(QIODevice::ReadOnly),"open result");
         const auto bytes=f.readAll();
         for(qsizetype i=0;i<points;++i)

@@ -33,6 +33,8 @@ public:
     const Frame &constFrame() const noexcept { return frame_; }
     int profile() const noexcept { return (binConfig_ >> 12) & 15; }
     int firstBin() const noexcept { return binConfig_ & 0x1ff; }
+    quint32 accumulationCount() const noexcept { return binConfig_ >> 16; }
+    quint32 triggerPeriodTicks() const noexcept { return triggerPeriodTicks_; }
     bool uniformRange() const noexcept { return uniformRange_; }
     bool settled() const override { return frame_[0].size() == Points; }
     int timeoutMs() const override { return (seconds_ + 5) * 1000; }
@@ -62,6 +64,7 @@ private:
         const auto count = (bytes.size() - offset) / Cdl5::RecordBytes;
         if (count > Points - frame_[0].size()) return;
         if (!headerReceived_) {
+            triggerPeriodTicks_ = Cdl5::word(bytes.constData() + 12);
             binConfig_ = Cdl5::word(bytes.constData() + 16);
             uniformRange_ = (Cdl5::word(bytes.constData() + 28) >> 31) != 0;
             headerReceived_ = true;
@@ -73,11 +76,12 @@ private:
     }
     const int seconds_;
     quint32 binConfig_ = 0;
+    quint32 triggerPeriodTicks_ = 0;
     bool uniformRange_ = false;
     bool headerReceived_ = false; // Distinguishes a header-only first datagram from no frame yet.
     Frame frame_;
 };
 using Cdl5FourKCollector = Cdl5Collector<Cdl5::FourK>;
 using Cdl5FiveKCollector = Cdl5Collector<Cdl5::FiveK>;
-using Cdl5TenKCollector = Cdl5Collector<Cdl5::TenK>;
+using Cdl5TenKCollector = Cdl5Collector<Cdl5::TenKAdc0>;
 static_assert(DAQCollectorLike<Cdl5FourKCollector> && DAQCollectorLike<Cdl5FiveKCollector> && DAQCollectorLike<Cdl5TenKCollector>);

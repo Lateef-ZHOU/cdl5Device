@@ -149,3 +149,9 @@ Windows 验证：通过主程序本地源码覆盖增量构建，五个网口官
 
 
 2026-11-05（用户定）：4/5/10 kHz各ADC风廓线页删除等待提示、占位布局及profileNote显隐接线。主程序Release增量构建与八秒离屏冒烟通过；保留既有Qt C4702及字体提示，无新增运行诊断。证据在LiDAR_DataACQ/build/build-profile-note-library.log、build-profile-note.log、smoke-profile-note.json。未做硬件采集；原启动入口更新，未推送。
+
+## 2026-11-06 Windows ADC0 三门宽适配（用户定）
+
+Release 构建及五份公开头单独编译通过，CTest 3/3。Collector 验证含 4/5/10 kHz 收集、分块与合并批次、三门宽坐标和四束高度、ADC0 共用标定及帧规格 JSON。QML 验证覆盖三规格页面、新版九个标题、逐路斜距及风廓线范围与功率谱轴参数。交付包三帧使用 `cdl5_collector_probe --adc0 <frame...>` 回放，每帧三路完整，首 bin 15，斜距末值 1434/3585/7170 m。
+
+本轮使用本地 ChartCore b882fb1 和相邻依赖源码覆盖。qmllint 保留 QObject 属性静态类型提示，Release 保留 Qt 生成代码 C4702 基线。实机数据来自交付包，当前未操作板卡或进行在线采集。主程序的构建和启动证据见其维护验证。

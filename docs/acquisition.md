@@ -6,7 +6,7 @@
 
 上行原样保留 FPGA 帧，不加 Bridge 头。32 字节帧头：word0 为 0x324c4443，word1 在 P8/P9 为 0x05040507，在 P7 为 0x05040607（lane 从 5 变为 6），word2 为门数高16位/频点数低16位；其他帧头字段包含触发周期、累积/Profile/bin 起点、配置代数、帧号与诊断。Collector 核对识别、lane 格式、Profile 与形状，然后跳过帧头。
 
-每条记录 32 字节：word0/1/2 是 ADC0/1/2 的 FP32；word3/4 为非活动通道；word5/6/7 为 gate/bin、帧号、版本及通道标志。Collector 忽略后三个 meta 字，不依赖其排序。使用 qFromLittleEndian<uint32> 读取位型，再 bit_cast<float>，最后转 double；不将原位型数值转换成浮点、不对未对齐地址强转 float 指针。
+每条记录 32 字节：word0/1/2 是三个输出槽的 FP32（4/5 kHz 为 ADC0/1/2，新 10 kHz 为 ADC0 的 6/15/30 m）；word3/4 为非活动通道；word5/6/7 为 gate/bin、帧号、版本及通道标志。Collector 忽略后三个 meta 字，不依赖其排序。使用 qFromLittleEndian<uint32> 读取位型，再 bit_cast<float>，最后转 double；不将原位型数值转换成浮点、不对未对齐地址强转 float 指针。
 
 | FPGA | 原谱 | 帧长 | 1024 字节传输 |
 |---|---|---|---|
@@ -34,4 +34,4 @@
 
 单帧有序接收是用户选择的简化：UDP 丢失、重复、乱序和旧包迟到不是由一次性发送本身消除的；本实现不另加 ID、重传、去重或重排。实际链路吞吐、丢包率及停止/软复位效果仍需板卡联调。
 
-原谱按原格式保存。风测量读取帧头 profile、range_mode 与起始 bin，按每路标定更新非均匀风图及保存，参见 README 的“三路 ADC 的风测量”。
+原谱以无头小端 double 保存。新 10 kHz 桌面规格按 ADC0 的 6/15/30 m 固定门距处理并附帧规格 JSON，4/5 kHz 仍按其帧头选择距离网格。风速沿用帧头起始 bin，标定和保存细节见 README。

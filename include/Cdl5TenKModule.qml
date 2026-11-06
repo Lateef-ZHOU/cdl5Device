@@ -25,14 +25,14 @@ ModulePage {
         required property var spec
         readonly property list<Page> pages: [
             Page {
-                title: qsTr("ADC%1·功率谱").arg(adc.channel)
+                title: qsTr("%1·功率谱").arg(adc.spec.channelName)
                 contentItem: SurfaceView {
                     id: surface
                     specification: adc.spec
                 }
             },
             Page {
-                title: qsTr("ADC%1·径向风").arg(adc.channel)
+                title: qsTr("%1·径向风").arg(adc.spec.channelName)
                 contentItem: NonuniformWind2DView {
                     id: radial
                     objectName: "radialADC" + adc.channel
@@ -48,7 +48,7 @@ ModulePage {
                 }
             },
             Page {
-                title: qsTr("ADC%1·风廓线").arg(adc.channel)
+                title: qsTr("%1·风廓线").arg(adc.spec.channelName)
                 contentItem: NonuniformWindBarbItem {
                     id: barbs
                     objectName: "barbsADC" + adc.channel
@@ -73,7 +73,7 @@ ModulePage {
                 radial.updateWS(ranges, speeds);
                 radial.updateCNR(ranges, cnr);
                 if (!calibrated)
-                    root.logMessage(qsTr("ADC%1：CNR 已更新。风速需在 cdl5-wind.ini 填入谱带内的零风速参考频率。").arg(channel));
+                    root.logMessage(qsTr("%1：CNR 已更新。风速需在 cdl5-wind.ini 填入 ADC0 的零风速参考频率。").arg(adc.spec.channelName));
             }
             function onProfileReady(channel, frame) {
                 if (channel === adc.channel)
@@ -84,17 +84,17 @@ ModulePage {
     readonly property ChannelPlots adc0: ChannelPlots {
         channel: 0
         backend: internals.device
-        spec: internals.chartParameters
+        spec: backend.chartParameters(channel)
     }
     readonly property ChannelPlots adc1: ChannelPlots {
         channel: 1
         backend: internals.device
-        spec: internals.chartParameters
+        spec: backend.chartParameters(channel)
     }
     readonly property ChannelPlots adc2: ChannelPlots {
         channel: 2
         backend: internals.device
-        spec: internals.chartParameters
+        spec: backend.chartParameters(channel)
     }
     mainPages: [...adc0.pages, ...adc1.pages, ...adc2.pages]
     readonly property Section connectionSection: ConnectionSection {
@@ -134,7 +134,6 @@ ModulePage {
 
     QtObject {
         id: internals
-        readonly property var chartParameters: device.chartParameters()
         readonly property var connectionParameters: device.connectionParameters
         readonly property Cdl5TenKDevice device: root.Cdl5TenKDevice
     }

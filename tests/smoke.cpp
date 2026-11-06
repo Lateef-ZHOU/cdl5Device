@@ -8,6 +8,7 @@
 #include <QPointer>
 #include <QTimer>
 #include <Device.h>
+#include <SurfaceItem.h>
 
 Q_IMPORT_QML_PLUGIN(LidarUIPlugin)
 Q_IMPORT_QML_PLUGIN(LidarChartsPlugin)
@@ -41,6 +42,25 @@ template<class DeviceT> int verify(QGuiApplication &app, const char *module)
         if (!card || page->property("family").value<DAQDeviceBase *>() != card) return 7;
         auto *cdl5 = qobject_cast<DeviceT *>(backend);
         for (int channel = 0; channel < 3; ++channel) {
+            if constexpr (std::is_same_v<DeviceT, Cdl5TenKDevice>) {
+                constexpr std::array steps{6, 15, 30};
+                const auto name = QStringLiteral("ADC0·%1m").arg(steps[channel]);
+                const auto surface = charts.at(channel * 3)->property("contentItem").value<QObject *>();
+                const auto radial = charts.at(channel * 3 + 1)->property("contentItem").value<QObject *>();
+                const auto barbs = charts.at(channel * 3 + 2)->property("contentItem").value<QObject *>();
+                if (!surface || !radial || !barbs) return 12;
+                const auto positions = radial->property("specification").toMap();
+                const auto gates = positions["ranges"].value<QVector<double>>();
+                if (gates.size() != 240 || gates.back() != 239 * steps[channel]
+                    || positions["rangeMaximum"].toInt() != 240 * steps[channel]
+                    || barbs->property("configuration").toMap()["maxHeight"].toInt() != 240 * steps[channel])
+                    return 13;
+                const auto *surfaceItem = surface->findChild<SurfaceItem *>();
+                if (!surfaceItem || surfaceItem->configuration()["rangeStep"].toInt() != steps[channel]) return 14;
+                for (int plot = 0; plot < 3; ++plot)
+                    if (!charts.at(channel * 3 + plot)->property("title").toString().startsWith(name + u'·'))
+                        return 15;
+            }
             if (!page->findChild<QObject *>(QString("radialADC%1").arg(channel))
                 || !page->findChild<QObject *>(QString("barbsADC%1").arg(channel))) return 10;
             Q_EMIT cdl5->radialReady(channel, {0, 15, 150}, {1, 2, 3}, {-9, -7, -4}, true);
