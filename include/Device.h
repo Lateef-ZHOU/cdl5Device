@@ -186,8 +186,7 @@ public:
     {
         if (channel < 0 || channel >= Config.channels) return {};
         const int step = Config.rangeChannels[channel].spacingM;
-        auto name = Cdl5::channelTag(Config, channel);
-        name.replace(u'_', u'·');
+        const auto name = step > 0 ? QStringLiteral("%1m").arg(step) : Cdl5::channelTag(Config, channel);
         return {{"rows", Config.rows}, {"columns", Config.columns}, {"channels", Config.channels},
                 {"channelName", name}, {"rangeStep", step},
                 {"rangeMaximum", step > 0 ? step * Config.rows : Config.rangeMaximum},

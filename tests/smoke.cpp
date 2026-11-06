@@ -7,6 +7,7 @@
 #include <memory>
 #include <QPointer>
 #include <QTimer>
+#include <QStringList>
 #include <Device.h>
 #include <SurfaceItem.h>
 
@@ -44,7 +45,7 @@ template<class DeviceT> int verify(QGuiApplication &app, const char *module)
         for (int channel = 0; channel < 3; ++channel) {
             if constexpr (std::is_same_v<DeviceT, Cdl5TenKDevice>) {
                 constexpr std::array steps{6, 15, 30};
-                const auto name = QStringLiteral("ADC0·%1m").arg(steps[channel]);
+                const auto name = QStringLiteral("%1m").arg(steps[channel]);
                 const auto surface = charts.at(channel * 3)->property("contentItem").value<QObject *>();
                 const auto radial = charts.at(channel * 3 + 1)->property("contentItem").value<QObject *>();
                 const auto barbs = charts.at(channel * 3 + 2)->property("contentItem").value<QObject *>();
@@ -57,8 +58,9 @@ template<class DeviceT> int verify(QGuiApplication &app, const char *module)
                     return 13;
                 const auto *surfaceItem = surface->findChild<SurfaceItem *>();
                 if (!surfaceItem || surfaceItem->configuration()["rangeStep"].toInt() != steps[channel]) return 14;
-                for (int plot = 0; plot < 3; ++plot)
-                    if (!charts.at(channel * 3 + plot)->property("title").toString().startsWith(name + u'·'))
+                const QStringList plotNames{QStringLiteral("功率谱"), QStringLiteral("径向风"), QStringLiteral("风廓线")};
+                for (int plot = 0; plot < plotNames.size(); ++plot)
+                    if (charts.at(channel * 3 + plot)->property("title").toString() != name + u'·' + plotNames[plot])
                         return 15;
             }
             if (!page->findChild<QObject *>(QString("radialADC%1").arg(channel))
