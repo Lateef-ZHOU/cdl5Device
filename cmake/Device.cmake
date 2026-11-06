@@ -11,7 +11,7 @@ endif()
 if(NOT TARGET Lidar::TaskUI)
     FetchContent_Declare(lidar_chartcore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/ChartCore.git
-        GIT_TAG 0a23f5a9fab88d5c19ccd65bf9cb63131d68272e)
+        GIT_TAG d69806723bfb77e362601edbeb918e3a69e34777)
     FetchContent_Declare(lidar_taskcore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/TaskCore.git
         GIT_TAG f6519d8585e5aca8bfd969a034aadac6e8e432f2)

@@ -57,7 +57,14 @@ template<class DeviceT> int verify(QGuiApplication &app, const char *module)
                     || barbs->property("configuration").toMap()["maxHeight"].toInt() != 240 * steps[channel])
                     return 13;
                 const auto *surfaceItem = surface->findChild<SurfaceItem *>();
-                if (!surfaceItem || surfaceItem->configuration()["rangeStep"].toInt() != steps[channel]) return 14;
+                if (!surfaceItem) return 14;
+                const auto grid = surfaceItem->configuration();
+                const SurfaceGrid surfaceGrid{grid["rows"].toInt(), grid["columns"].toInt()};
+                const SurfaceAxes::Projection projection(SurfaceCamera{}, QSizeF(800, 600));
+                const auto axes = SurfaceAxes::makeScene(projection, surfaceGrid, 0, 1, app.font());
+                if (axes.scales[1].title != QStringLiteral("距离门 (下标)")
+                    || axes.scales[1].low != 0 || axes.scales[1].high != 239)
+                    return 14;
                 const QStringList plotNames{QStringLiteral("功率谱"), QStringLiteral("径向风"), QStringLiteral("风廓线")};
                 for (int plot = 0; plot < plotNames.size(); ++plot)
                     if (charts.at(channel * 3 + plot)->property("title").toString() != name + u'·' + plotNames[plot])

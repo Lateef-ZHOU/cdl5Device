@@ -188,7 +188,7 @@ public:
         const int step = Config.rangeChannels[channel].spacingM;
         const auto name = step > 0 ? QStringLiteral("%1m").arg(step) : Cdl5::channelTag(Config, channel);
         return {{"rows", Config.rows}, {"columns", Config.columns}, {"channels", Config.channels},
-                {"channelName", name}, {"rangeStep", step},
+                {"channelName", name},
                 {"rangeMaximum", step > 0 ? step * Config.rows : Config.rangeMaximum},
                 {"ranges", QVariant::fromValue(Cdl5::channelRanges(Config, channel, false))},
                 {"powerMax", static_cast<double>(std::numeric_limits<float>::max())}};
