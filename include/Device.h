@@ -3,14 +3,12 @@
 #include <memory>
 #include <limits>
 #include <optional>
-#include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSaveFile>
-#include <QSettings>
 #include <QtQml/qqmlregistration.h>
 #include <QVariantMap>
 #include <DAQDevice.h>
@@ -55,10 +53,7 @@ template<class CollectorT, class Self>
 auto makeCdl5Processor(Self *self)
 {
     using BeamRing = std::array<WindProfile::Input, WindProfile::kBeams>;
-    const QSettings settings(QDir(QCoreApplication::applicationDirPath()).filePath("cdl5-wind.ini"),
-                             QSettings::IniFormat);
-    return [self, reference = Cdl5::readReferenceMHz(CollectorT::Specification, settings),
-            beams = std::array<BeamRing, CollectorT::Specification.channels>{},
+    return [self, beams = std::array<BeamRing, CollectorT::Specification.channels>{},
             lastUniform = false, lastBin = -1, cursor = 0]
                   (const std::shared_ptr<const CollectorT> &frame) mutable {
         if (!frame || !frame->settled()) return;
@@ -86,7 +81,7 @@ auto makeCdl5Processor(Self *self)
                     stem, values, tag);
             if (ranges.isEmpty()) continue;
             auto [radial, calibrated] = Cdl5::radial(values, frame->Rows, frame->Columns,
-                                                    frame->firstBin(), reference[channel]);
+                                                    frame->firstBin(), Cdl5::ZeroWindReferenceMHz);
             Q_EMIT self->radialReady(channel, ranges, radial.ws, radial.cnr, calibrated);
             if (!calibrated) continue;
             beams[channel][cursor] = {context.pose, radial.ws};

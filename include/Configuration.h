@@ -34,6 +34,8 @@ inline constexpr Configuration TenK{7, 10000, 240, 240, 6, 3, 14400, true};
 inline constexpr Configuration TenKAdc0{7, 10000, 240, 240, 6, 3, 7200, false,
                                          {{{6, 20}, {15, 50}, {30, 100}}}};
 inline constexpr std::array Configurations{FourK, FiveK, TenK};
+// 零风速参考频率（MHz），所有规格与通道共用；超出本帧频带时该通道只出 CNR、风速缺测。
+inline constexpr double ZeroWindReferenceMHz = 80.0;
 
 constexpr std::optional<Configuration> configuration(int profile)
 {

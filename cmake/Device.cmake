@@ -41,6 +41,13 @@ target_link_libraries(LidarCdl5Device PUBLIC Lidar::TaskUI Lidar::Cdl5Udp Lidar:
 target_compile_definitions(LidarCdl5Device PUBLIC QT_NO_KEYWORDS NOMINMAX)
 if(MSVC)
     target_compile_options(LidarCdl5Device PRIVATE /W4 /utf-8)
+    # Qt generated QML code can trigger C4702 inside Qt headers during optimization.
+    get_target_property(sources LidarCdl5Device SOURCES)
+    foreach(source IN LISTS sources)
+        if(source MATCHES "/[.]rcc/qmlcache/")
+            set_source_files_properties("${source}" PROPERTIES COMPILE_OPTIONS /wd4702)
+        endif()
+    endforeach()
 else()
     target_compile_options(LidarCdl5Device PRIVATE -Wall -Wextra -Wpedantic)
 endif()

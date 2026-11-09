@@ -1,5 +1,7 @@
 # cdl5Device 维护入口
 
+2026-11-09 用户定：零风速参考频率为型号常量 80 MHz（Configuration.h 的 ZeroWindReferenceMHz），4/5 kHz 与 10 kHz 所有通道共用；删除 cdl5-wind.ini 及其读取、QSettings 依赖。参考落在本帧频带内即换算风速，否则只出 CNR。qmlcache 生成代码按其他官邸的方式局部豁免 C4702。见 VALIDATION。
+
 2026-11-06 用户定：桌面 10 kHz 装配明确选用 TenKAdc0 规格，对应 PL 0x26110401。三个输出槽属于同一 ADC0，按 6/15/30 m 独立计算斜距和高度、共用 ADC0 零风速参考。每帧保存说明 JSON 与三份原谱，保留 4/5 kHz 和传输链。见 README、VALIDATION。
 
 2026-11-03 用户定：网口连接区仅保留网卡选择和连接/断开，删除 IP、端口等固定参数展示及对应 QML 参数字段；实际连接配置、校验、ARP 和收发关闭行为保持。

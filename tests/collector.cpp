@@ -2,6 +2,7 @@
 #include <WindProcessing.h>
 #include <QFile>
 #include <QTemporaryDir>
+#include <cmath>
 #include <numbers>
 #include <cstdlib>
 #include <iostream>
@@ -111,18 +112,7 @@ int main(int argc, char **argv)
     check(Cdl5::command(2).toHex() == "43444c3502000000", "command wire bytes");
     check(!Cdl5::decodeCommand(Cdl5::command(17)), "invalid duration rejected");
     verify<Cdl5::FourK>(); verify<Cdl5::FiveK>(); verify<Cdl5::TenKAdc0>();
-    QTemporaryDir configDir;
-    check(configDir.isValid(), "temporary calibration directory");
-    QSettings calibration(configDir.filePath("cdl5-wind.ini"), QSettings::IniFormat);
-    calibration.setValue("wind/ADC0", 80.0);
-    calibration.setValue("wind/ADC1", 81.0);
-    calibration.setValue("wind/ADC2", 82.0);
-    check(Cdl5::readReferenceMHz(Cdl5::TenKAdc0, calibration) == Cdl5::ReferenceMHz{80.0, 80.0, 80.0}
-          && Cdl5::readReferenceMHz(Cdl5::FiveK, calibration) == Cdl5::ReferenceMHz{80.0, 81.0, 82.0},
-          "ADC0 is shared only by the new specification");
-    calibration.remove("wind/ADC0");
-    check(Cdl5::readReferenceMHz(Cdl5::TenKAdc0, calibration) == Cdl5::ReferenceMHz{},
-          "legacy ADC1 and ADC2 do not substitute for missing ADC0");
+    static_assert(Cdl5::ZeroWindReferenceMHz == 80.0, "zero-wind reference is a fixed model constant");
     const QVector<double> radialSpeeds(240, 1.0);
     const std::array<WindProfile::Input, 4> beams{{
         {WorldModel(0, 30, 0), radialSpeeds}, {WorldModel(90, 30, 0), radialSpeeds},
@@ -155,12 +145,12 @@ int main(int argc, char **argv)
           && Cdl5::gateRanges(9, true, 500).isEmpty(), "uniform P7 and mixed P9 geometry");
     QVector<double> peak(128);
     for (int i = 0; i < 128; ++i) peak[i] = 2 + 30 * std::exp(-0.5 * std::pow((i - 68) / 3.0, 2));
-    const auto [wind, valid] = Cdl5::radial(peak, 1, 128, 15, 80.0);
-    const auto [uncal, absent] = Cdl5::radial(peak, 1, 128, 15, std::nullopt);
+    const auto [wind, valid] = Cdl5::radial(peak, 1, 128, 15, Cdl5::ZeroWindReferenceMHz);
+    const auto [uncal, absent] = Cdl5::radial(peak, 1, 128, 15, 1.0);
     check(valid && !absent && std::abs(wind.ws.front() - (83 * 500.0 / 512 - 80) * 0.775) < 0.02
           && std::isnan(uncal.ws.front()) && wind.cnr.front() == uncal.cnr.front()
           && std::abs(wind.cnr.front() - 10 * std::log10(std::sqrt(2 * std::numbers::pi) * 90 / 256)) < 0.02,
-          "known peak, real bin offset, missing reference still produces identical CNR");
+          "known peak, real bin offset, out-of-band reference still produces identical CNR");
     std::cout << "PASS three FPGA geometries, FP32, prototype/retry, chunks and coalesced batches\n";
     const auto replay = []<class Collector>(const QString &path) {
         QFile file(path);

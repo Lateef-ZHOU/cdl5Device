@@ -1,10 +1,6 @@
 #pragma once
-#include <array>
-#include <cmath>
 #include <limits>
-#include <optional>
 #include <utility>
-#include <QSettings>
 #include <RadialWind.h>
 #include <WindProfile.h>
 #include "Collector.h"
@@ -39,31 +35,18 @@ inline QString channelTag(Configuration config, int channel)
     return QStringLiteral("ADC%1").arg(channel);
 }
 
-using ReferenceMHz = std::array<std::optional<double>, 3>;
-inline ReferenceMHz readReferenceMHz(Configuration config, const QSettings &settings)
-{
-    ReferenceMHz references{};
-    const int referenceCount = config.adc0Multires() ? 1 : config.channels;
-    for (int channel = 0; channel < referenceCount; ++channel) {
-        bool ok = false;
-        const double f = settings.value(QString("wind/ADC%1").arg(channel)).toDouble(&ok);
-        if (ok && std::isfinite(f) && f > 0.0) references[channel] = f;
-    }
-    if (config.adc0Multires()) references.fill(references.front());
-    return references;
-}
-
 // 500 MSPS、512 点 FFT，波长 1550 nm。频移向上取正，与交付上位机的径向风换算一致。
 inline constexpr int SampleRateHz = 500000000;
 inline constexpr int FftLength = 512;
 inline constexpr double BinMHz = SampleRateHz / 1000000.0 / FftLength;
+// 参考频率落在本帧频带内才换算风速，否则风速为 NaN、CNR 照常；第二项表示是否已换算。
 inline std::pair<RadialWind::Result, bool> radial(const QVector<double> &spectrum, int rows, int columns,
-                                int firstBin, std::optional<double> reference)
+                                int firstBin, double referenceMHz)
 {
     constexpr double metersPerSecondPerMHz = 0.775;
     const double low = firstBin * BinMHz, high = (firstBin + columns - 1) * BinMHz;
-    const bool calibrated = reference && *reference >= low && *reference <= high;
-    const double offset = calibrated ? (low - *reference) * metersPerSecondPerMHz
+    const bool calibrated = referenceMHz >= low && referenceMHz <= high;
+    const double offset = calibrated ? (low - referenceMHz) * metersPerSecondPerMHz
                                      : std::numeric_limits<double>::quiet_NaN();
     return {RadialWind::Calc(spectrum, rows, columns, BinMHz * metersPerSecondPerMHz, offset), calibrated};
 }

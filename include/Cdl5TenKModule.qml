@@ -73,7 +73,7 @@ ModulePage {
                 radial.updateWS(ranges, speeds);
                 radial.updateCNR(ranges, cnr);
                 if (!calibrated)
-                    root.logMessage(qsTr("ADC0·%1：CNR 已更新。风速需在 cdl5-wind.ini 填入 ADC0 的零风速参考频率。").arg(adc.spec.channelName));
+                    root.logMessage(qsTr("ADC0·%1：CNR 已更新。零风速参考频率不在本帧频带内，风速缺测。").arg(adc.spec.channelName));
             }
             function onProfileReady(channel, frame) {
                 if (channel === adc.channel)

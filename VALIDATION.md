@@ -1,5 +1,11 @@
 # 验证记录
 
+## 2026-11-09：零风速参考硬编码与 qmlcache 警告豁免（用户定）
+
+- 零风速参考频率改为 `Configuration.h` 的 `ZeroWindReferenceMHz = 80.0`，所有规格与通道共用；删除 `readReferenceMHz`、`ReferenceMHz` 与 QSettings/QCoreApplication 依赖，`radial` 直接收参考频率，越出本帧频带仍只出 CNR。三个页面未换算时的日志改为“零风速参考频率不在本帧频带内，风速缺测”。首 bin 15 时两种频点数的频带都覆盖 80 MHz，因此现行三种规格风速均参与换算。
+- `cmake/Device.cmake` 对 `.rcc/qmlcache/` 生成文件加 `/wd4702`，与其他官邸一致；原 Release 整编的 12 条 Qt 头 C4702 即来自三个 Module.qml。
+- 验证：主程序原 build 源码覆盖 Release 整编零警告，三个 Module 的 qmlcache 均重编。本仓新建 build-1109（UDP+Device，相邻公共库源码覆盖）Release 零警告，CTest 3/3（udp、collector、page，7.69 秒）；collector 删除 ini 读取用例，改为常量断言及频带外参考仍出相同 CNR。旧 build-win 缓存指向迁移前 Documents 路径，未复用。未连接实物或改动板卡。
+
 ## 2026-11-03：九图平铺与标签精简
 
 - 三规格页面的 ChannelPlots 只持有三张 Page 及原有接线，主页面直接展开三个通道的列表；无内层 TabPane，不增加后端或数据缓存。副标题按配置频率生成，尺寸和通道数不再重复显示于设备标签。
