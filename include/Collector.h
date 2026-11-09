@@ -68,16 +68,14 @@ public:
     static constexpr int Columns = Config.columns;
     static constexpr qsizetype Points = Rows * Columns;
     static constexpr auto Specification = Config;
-    static std::shared_ptr<const Cdl5Collector> createPrototype(int seconds, DAQContext context)
+    // 族模板层按请求参数造完整实例并备齐三路收集区；makeSelf 供看门狗重试另造新斗。
+    static std::shared_ptr<Cdl5Collector> create(const DAQParameters &parameters)
     {
-        return std::shared_ptr<const Cdl5Collector>(new Cdl5Collector(seconds, std::move(context)));
-    }
-    std::shared_ptr<Cdl5Collector> makeSelf() const
-    {
-        auto result = std::shared_ptr<Cdl5Collector>(new Cdl5Collector(accumSec(), context()));
+        auto result = std::shared_ptr<Cdl5Collector>(new Cdl5Collector(parameters.accumSec, parameters.context));
         for (auto &channel : *result) channel.spectrum.reserve(Points);
         return result;
     }
+    std::shared_ptr<Cdl5Collector> makeSelf() const { return create({accumSec(), context()}); }
     int profile() const noexcept { return (binConfig_ >> 12) & 15; }
     int firstBin() const noexcept { return binConfig_ & 0x1ff; }
     bool uniformRange() const noexcept { return uniformRange_; }

@@ -81,9 +81,7 @@ template<class DeviceT> int verify(QGuiApplication &app, const char *module)
         using C = typename DeviceT::CollectorType;
         if (spec["rows"].toInt() != C::Rows || spec["columns"].toInt() != C::Columns
             || cdl5->acquisitionParameters()["accumMax"].toInt() != C::Specification.maxAccumSeconds()) return 11;
-        const auto prototype = card->collectorFor(1, {});
-        if (!std::dynamic_pointer_cast<const typename DeviceT::CollectorType>(prototype) || prototype->settled()) return 8;
-        if (card->begin(prototype, [](auto) {}, {})) return 9; // Offline admission must reject, without starting hardware.
+        if (card->begin(DAQParameters{1, {}}, [](auto) {}, {})) return 9; // Offline admission must reject, without starting hardware.
         card->stop({});
         const QPointer<QObject> lifetime(backend);
         QTimer::singleShot(2500, &app, &QCoreApplication::quit);

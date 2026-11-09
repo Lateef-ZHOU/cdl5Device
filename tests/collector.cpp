@@ -12,8 +12,8 @@ void check(bool value, const char *reason)
 template<Cdl5::Configuration Config> void verify()
 {
     using C = Cdl5Collector<Config>;
-    const auto prototype = C::createPrototype(2, {});
-    check(prototype->size() == 3 && (*prototype)[0].spectrum.capacity() == 0, "prototype allocates no spectrum");
+    const auto prototype = C::create({2, {}});
+    check(prototype->size() == 3 && (*prototype)[0].spectrum.capacity() >= C::Points, "factory reserves every channel");
     const auto result = prototype->makeSelf();
     const auto retry = result->makeSelf();
     check((*result)[2].spectrum.capacity() >= C::Points, "three receive areas reserved");
@@ -37,7 +37,7 @@ template<Cdl5::Configuration Config> void verify()
     wrong = frame.first(1024);
     qToLittleEndian(quint32(0), wrong.data() + 16);
     check(!result->feed(wrong, stamp) && (*result)[0].spectrum.isEmpty(), "wrong profile rejected");
-    const auto clamped = C::createPrototype(999, {});
+    const auto clamped = C::create({999, {}});
     check(Cdl5::decodeCommand(clamped->buildStart().front()) == Config.maxAccumSeconds(), "model accumulation upper bound");
     int packets = 0;
     for (qsizetype offset = 0; offset < frame.size(); offset += 1024) {
@@ -91,7 +91,7 @@ template<Cdl5::Configuration Config> void verify()
 }
 int main(int argc, char **argv)
 {
-    static_assert(std::is_same_v<decltype(Cdl5FourKCollector::createPrototype(1, {})), std::shared_ptr<const Cdl5FourKCollector>>);
+    static_assert(std::is_same_v<decltype(Cdl5FourKCollector::create({1, {}})), std::shared_ptr<Cdl5FourKCollector>>);
     const auto unaligned = QByteArray::fromHex("780000a03f");
     check(Cdl5::power(unaligned.constData() + 1) == 1.25, "unaligned little-endian float bit interpretation");
     check(Cdl5::command(2).toHex() == "43444c3502000000", "command wire bytes");
@@ -147,7 +147,7 @@ int main(int argc, char **argv)
     const auto replay = []<class Collector>(const QString &path) {
         QFile file(path);
         check(file.open(QIODevice::ReadOnly), "open captured frame");
-        const auto collector = Collector::createPrototype(1, {})->makeSelf();
+        const auto collector = Collector::create({1, {}});
         while (!file.atEnd()) collector->feed(file.read(7168), {});
         constexpr auto config = Collector::Specification;
         check(collector->settled() && collector->profile() == config.profile, "complete captured spectrum");

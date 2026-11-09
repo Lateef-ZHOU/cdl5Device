@@ -43,8 +43,7 @@ template<class DeviceT> void verify(QCoreApplication &app)
     });
     bool completed=false;
     DAQContext context;context.saveRoot=QDir(output.path());context.sessionDir="probe";
-    const auto prototype=backend.collectorFor(1,std::move(context));
-    check(backend.begin(prototype,[&](std::shared_ptr<const DAQCollector> frame) { completed=bool(frame); },{}),"begin typed collection");
+    check(backend.begin(DAQParameters{1,std::move(context)},[&](std::shared_ptr<const DAQCollector> frame) { completed=bool(frame); },{}),"begin typed collection");
     const auto sent=FakePcap::sent();
     check(!sent.empty()&&UDPDatagram(sent.front().bytes).bodyView()==Cdl5::command(1),"collector command through Pcap");
     QByteArray frame((points+1)*32,0);
