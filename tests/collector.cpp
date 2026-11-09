@@ -1,7 +1,7 @@
 #include <Device.h>
-#include <WindProcessing.h>
+#include <WindProfile.h>
 #include <QFile>
-#include <QTemporaryDir>
+
 #include <cmath>
 #include <numbers>
 #include <cstdlib>
@@ -13,10 +13,10 @@ template<Cdl5::Configuration Config> void verify()
 {
     using C = Cdl5Collector<Config>;
     const auto prototype = C::createPrototype(2, {});
-    check(prototype->constFrame()[0].capacity() == 0, "prototype allocates no spectrum");
+    check(prototype->size() == 3 && (*prototype)[0].spectrum.capacity() == 0, "prototype allocates no spectrum");
     const auto result = prototype->makeSelf();
     const auto retry = result->makeSelf();
-    check(result->constFrame()[2].capacity() >= C::Points, "three receive areas reserved");
+    check((*result)[2].spectrum.capacity() >= C::Points, "three receive areas reserved");
     const RxTime stamp = RxTime{} + std::chrono::seconds(123);
     QByteArray frame((C::Points + 1) * 32, char(-1));
     qToLittleEndian(Cdl5::FrameMagic, frame.data());
@@ -30,13 +30,13 @@ template<Cdl5::Configuration Config> void verify()
     check(!result->feed(QByteArray(31, 0), stamp), "unaligned packet ignored");
     auto wrong = frame.first(1024);
     qToLittleEndian(quint32(0), wrong.data() + 8);
-    check(!result->feed(wrong, stamp) && result->constFrame()[0].isEmpty(), "wrong dimensions rejected");
+    check(!result->feed(wrong, stamp) && (*result)[0].spectrum.isEmpty(), "wrong dimensions rejected");
     wrong = frame.first(1024);
     qToLittleEndian(quint32(0x05040707), wrong.data() + 4);
-    check(!result->feed(wrong, stamp) && result->constFrame()[0].isEmpty(), "wrong lane format rejected");
+    check(!result->feed(wrong, stamp) && (*result)[0].spectrum.isEmpty(), "wrong lane format rejected");
     wrong = frame.first(1024);
     qToLittleEndian(quint32(0), wrong.data() + 16);
-    check(!result->feed(wrong, stamp) && result->constFrame()[0].isEmpty(), "wrong profile rejected");
+    check(!result->feed(wrong, stamp) && (*result)[0].spectrum.isEmpty(), "wrong profile rejected");
     const auto clamped = C::createPrototype(999, {});
     check(Cdl5::decodeCommand(clamped->buildStart().front()) == Config.maxAccumSeconds(), "model accumulation upper bound");
     int packets = 0;
@@ -49,37 +49,21 @@ template<Cdl5::Configuration Config> void verify()
     check(packets == (Config.rows == 500 ? 2001 : 1801), "1024-byte chunks and 32-byte tail");
     for (qsizetype i = 0; i < C::Points; ++i)
         for (int c = 0; c < 3; ++c)
-            check(result->constFrame()[c][i] == double(i) + 0.25 * (c + 1), "FP32 LE decoded and widened in arrival order, meta ignored");
+            check((*result)[c].spectrum[i] == double(i) + 0.25 * (c + 1), "FP32 LE decoded and widened in arrival order, meta ignored");
     check(result->frameTime() == stamp && retry->frameTime() == RxTime{}, "first packet stamp and fresh retry");
-    check(result->firstBin() == 15 && result->accumulationCount() == 10000
-          && result->triggerPeriodTicks() == 25000, "frame bin and accumulation metadata");
-    if constexpr (Config.adc0Multires()) {
-        QTemporaryDir output;
-        check(output.isValid(), "temporary spectrum directory");
-        Cdl5::saveSpectrumMetadata(*result, QDir(output.path()), "test-frame");
-        QFile metadata(output.filePath("Rawspec/test-frame.json"));
-        check(metadata.open(QIODevice::ReadOnly), "spectrum metadata saved beside payloads");
-        const auto spec = QJsonDocument::fromJson(metadata.readAll()).object();
-        check(spec["rows"].toInt() == 240 && spec["columns"].toInt() == 240
-              && spec["firstBin"].toInt() == 15 && spec["accumulationCount"].toInt() == 10000
-              && spec["triggerPeriodTicks"].toInt() == 25000
-              && spec["configuredPlVersion"].toString() == "0x26110401"
-              && spec["encoding"].toString() == "float64-le", "frame metadata fields");
-        const auto channels = spec["channels"].toArray();
-        check(channels.size() == 3, "three described channels");
-        constexpr std::array steps{6, 15, 30};
-        constexpr std::array samples{20, 50, 100};
-        for (int i = 0; i < 3; ++i) {
-            const auto channel = channels[i].toObject();
-            check(channel["adc"].toInt(-1) == 0 && channel["rangeStartM"].toInt(-1) == 0
-                  && channel["gateSpacingM"].toInt() == steps[i]
-                  && channel["validSamplesPerGate"].toInt() == samples[i]
-                  && channel["file"].toString() == QString("ADC0_%1m_test-frame.bin").arg(steps[i]),
-                  "described channel ADC, gate, and payload name");
-        }
+    check(result->firstBin() == 15 && result->profile() == Config.profile, "frame bin metadata");
+    // 通道规格：频率轴取帧头起始 bin，多门宽规格的距离轴固定，其余规格按帧头距离模式。
+    for (int c = 0; c < 3; ++c) {
+        const auto &channel = (*result)[c];
+        check(channel.name == Cdl5::channelTag(Config, c) && channel.rows == Config.rows && channel.columns == Config.columns
+              && channel.freqMHz.size() == Config.columns && channel.freqMHz.front() == 15 * Cdl5::BinMHz
+              && channel.zeroWindMHz == Cdl5::ZeroWindReferenceMHz
+              && channel.rangeM == Cdl5::channelRanges(Config, c, result->uniformRange()),
+              "channel specification from configuration and frame header");
+        check(channel.cnr.size() == (channel.rangeM.isEmpty() ? 0 : Config.rows), "standard processing ran on completion");
     }
-    check(retry->constFrame()[0].isEmpty() && prototype->constFrame()[0].isEmpty(), "independent receive areas");
-    check(result->feed(QByteArray(1024, 0), stamp) && result->constFrame()[0][0] == .25, "settled cannot be rewritten");
+    check((*retry)[0].spectrum.isEmpty() && (*prototype)[0].spectrum.isEmpty(), "independent receive areas");
+    check(result->feed(QByteArray(1024, 0), stamp) && (*result)[0].spectrum[0] == .25, "settled cannot be rewritten");
     auto missing = prototype->makeSelf();
     for (qsizetype offset = 0; offset < frame.size() - 32; offset += 1024)
         missing->feed(frame.mid(offset, 1024), stamp);
@@ -87,21 +71,22 @@ template<Cdl5::Configuration Config> void verify()
     auto splitHeader = prototype->makeSelf();
     splitHeader->feed(frame.first(32), stamp);
     splitHeader->feed(frame.mid(32, 1024), stamp);
-    check(splitHeader->constFrame()[0].size() == 32, "header-only packet not confused with no header");
+    check((*splitHeader)[0].spectrum.size() == 32, "header-only packet not confused with no header");
 
     // Npcap can receive seven original 1024-byte chunks as one 7168-byte batch.
     auto coalesced = prototype->makeSelf();
-    check(!coalesced->feed(frame.first(7169), stamp) && coalesced->constFrame()[0].isEmpty(),
+    check(!coalesced->feed(frame.first(7169), stamp) && (*coalesced)[0].spectrum.isEmpty(),
           "coalesced but unaligned input rejected without consuming header");
     for (qsizetype offset = 0; offset < frame.size() - 32; offset += 7168) {
         const auto batch = frame.mid(offset, std::min<qsizetype>(7168, frame.size() - 32 - offset));
         check(!coalesced->feed(batch, stamp), "coalesced batches still require final record");
     }
-    const auto before = coalesced->constFrame()[0].size();
-    check(!coalesced->feed(QByteArray(64, 0), stamp) && coalesced->constFrame()[0].size() == before,
+    const auto before = (*coalesced)[0].spectrum.size();
+    check(!coalesced->feed(QByteArray(64, 0), stamp) && (*coalesced)[0].spectrum.size() == before,
           "oversized tail rejected without partial append");
     check(coalesced->feed(frame.last(32), stamp), "coalesced frame completes on actual tail");
-    check(coalesced->constFrame() == result->constFrame() && coalesced->frameTime() == stamp,
+    check(std::ranges::equal(*coalesced, *result, [](const auto &l, const auto &r) { return l.spectrum == r.spectrum; })
+          && coalesced->frameTime() == stamp,
           "coalescing preserves every ADC value and first arrival time");
 }
 int main(int argc, char **argv)
@@ -145,10 +130,17 @@ int main(int argc, char **argv)
           && Cdl5::gateRanges(9, true, 500).isEmpty(), "uniform P7 and mixed P9 geometry");
     QVector<double> peak(128);
     for (int i = 0; i < 128; ++i) peak[i] = 2 + 30 * std::exp(-0.5 * std::pow((i - 68) / 3.0, 2));
-    const auto [wind, valid] = Cdl5::radial(peak, 1, 128, 15, Cdl5::ZeroWindReferenceMHz);
-    const auto [uncal, absent] = Cdl5::radial(peak, 1, 128, 15, 1.0);
-    check(valid && !absent && std::abs(wind.ws.front() - (83 * 500.0 / 512 - 80) * 0.775) < 0.02
-          && std::isnan(uncal.ws.front()) && wind.cnr.front() == uncal.cnr.front()
+    // 族标准处理：起始 bin 15 的频率轴，参考在带内换算风速，带外只出 CNR。
+    const auto channelWith = [&](double zero) {
+        DAQChannel c;
+        c.rows = 1; c.columns = 128; c.rangeM = {0}; c.freqMHz = Cdl5::binFrequencies(15, 128);
+        c.zeroWindMHz = zero; c.metersPerSecondPerMHz = Cdl5::MetersPerSecondPerMHz; c.spectrum = peak;
+        c.process();
+        return c;
+    };
+    const auto wind = channelWith(Cdl5::ZeroWindReferenceMHz), uncal = channelWith(1.0);
+    check(wind.calibrated() && !uncal.calibrated() && std::abs(wind.radialWind.front() - (83 * 500.0 / 512 - 80) * 0.775) < 0.02
+          && std::isnan(uncal.radialWind.front()) && wind.cnr.front() == uncal.cnr.front()
           && std::abs(wind.cnr.front() - 10 * std::log10(std::sqrt(2 * std::numbers::pi) * 90 / 256)) < 0.02,
           "known peak, real bin offset, out-of-band reference still produces identical CNR");
     std::cout << "PASS three FPGA geometries, FP32, prototype/retry, chunks and coalesced batches\n";
@@ -160,18 +152,15 @@ int main(int argc, char **argv)
         constexpr auto config = Collector::Specification;
         check(collector->settled() && collector->profile() == config.profile, "complete captured spectrum");
         if constexpr (config.adc0Multires())
-            check(collector->firstBin() == 15 && collector->triggerPeriodTicks() == 25000
-                  && collector->accumulationCount() == 10000, "ADC0 capture header metadata");
+            check(collector->firstBin() == 15, "ADC0 capture header metadata");
         for (int channel = 0; channel < config.channels; ++channel) {
-            const auto physical = Cdl5::channelRanges(config, channel, collector->uniformRange());
-            const auto [measured, configured] = Cdl5::radial(collector->constFrame()[channel], config.rows,
-                                                              config.columns, collector->firstBin(), {});
-            check(!configured && measured.cnr.size() == physical.size()
+            const auto &measured = (*collector)[channel];
+            check(measured.cnr.size() == measured.rangeM.size()
                   && std::ranges::any_of(measured.cnr, [](double v) { return std::isfinite(v); }),
-                  "real spectrum produces CNR without inventing a calibrated velocity");
-            std::cout << "Replay " << Cdl5::channelTag(config, channel).toStdString()
-                      << ": " << physical.size() << " gates, first bin " << collector->firstBin()
-                      << ", range " << physical.first() << ".." << physical.last() << " m\n";
+                  "real spectrum produces CNR on completion");
+            std::cout << "Replay " << measured.name.toStdString()
+                      << ": " << measured.rangeM.size() << " gates, first bin " << collector->firstBin()
+                      << ", range " << measured.rangeM.first() << ".." << measured.rangeM.last() << " m\n";
         }
     };
     bool adc0 = false;

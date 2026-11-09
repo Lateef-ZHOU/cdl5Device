@@ -46,7 +46,7 @@ if(CDL5_WITH_DEVICE)
         target_link_libraries(cdl5_pipeline_probe PRIVATE Lidar::Cdl5Device)
         cdl5_probe(cdl5_pipeline_probe)
     endif()
-    foreach(header IN ITEMS Device Collector Cdl5Protocol Configuration WindProcessing)
+    foreach(header IN ITEMS Device Collector Cdl5Protocol Configuration)
         file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/Cdl5${header}_alone.cpp"
             CONTENT "#include <${header}.h>\n")
         add_library(cdl5_${header}_header OBJECT "${CMAKE_CURRENT_BINARY_DIR}/Cdl5${header}_alone.cpp")

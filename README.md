@@ -1,5 +1,7 @@
 # cdl5Device
 
+2026-11-09 用户定：删除处理线程、中间 Core 与型号处理 lambda；末端直接继承 `DAQDevice<HandleT, CollectorT>`，唯一 QObject 来自 Handle。Collector 继承族基的通道数组，型号只给通道规格并按协议整理功率谱，收齐末包调用 complete() 由族基在收包线程做标准处理；显示、落盘（每帧一个 JSON）与风廓线由族层完成。页面改接族信号 spectrumReady/radialReady/profileReady（按通道下标），family 改为 QtObject，删除 device.device 自引用。通道名 ADC0_6m/15m/30m（多门宽）或 ADCn；频率轴取帧头起始 bin，非多门宽规格的距离轴按帧头距离模式。删除 WindProcessing.h（门位/频率辅助并入 Collector.h）与 Rawspec 规格 JSON；帧头只保留 profile/firstBin/uniformRange，累积计数与触发周期不再保存。验证：独立构建零警告，CTest 3/3。
+
 2026-11-03 用户定：网口连接区仅保留网卡选择和连接/断开，删除 IP、端口等固定参数展示及对应 QML 参数字段；实际连接配置、校验、ARP 和收发关闭行为保持。
 
 Windows 验证：通过主程序本地源码覆盖增量构建，五个网口官邸 qmllint 目标成功；仍有 QObject 属性类型的既有静态提示。八秒离屏冒烟通过，仅既有字体提示；未进行硬件操作或 Linux 验证。证据：LiDAR_DataACQ/build/build-network-ui.log、smoke-network-ui.json。

@@ -10,7 +10,7 @@ import QtQuick.Layouts
 ModulePage {
     id: root
     readonly property string kind: "device"
-    readonly property DAQDeviceBase family: internals.device
+    readonly property QtObject family: internals.device // 采集卡族基不是 QObject，交出设备对象本身
     property var acquisitionParameters
     property int accum: acquisitionParameters.accumDefault
     property url saveDir: acquisitionParameters.saveDirDefault
@@ -127,10 +127,10 @@ ModulePage {
         acquisition: root
     }
     objectName: "Cdl5FiveKModule"
-    readonly property string name: internals.device.device.displayName
-    readonly property string subtitle: internals.device.device.subtitle
-    // 借用公共只读资源接口，不暴露具体型号后端或缓存状态。
-    readonly property var deviceState: internals.device.device
+    readonly property string name: internals.device.displayName
+    readonly property string subtitle: internals.device.subtitle
+    // 借用公共只读资源接口（即设备对象本身），不另存状态。
+    readonly property var deviceState: internals.device
 
     QtObject {
         id: internals
@@ -139,7 +139,7 @@ ModulePage {
         readonly property Cdl5FiveKDevice device: root.Cdl5FiveKDevice
     }
     Connections {
-        target: internals.device.device
+        target: internals.device
         function onLogMessage(text): void {
             root.logMessage(text);
         }

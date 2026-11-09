@@ -1,6 +1,9 @@
 #include <Device.h>
 #include "FakePcap.h"
 #include <QCoreApplication>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTemporaryDir>
 #include <QDirIterator>
 #include <QFile>
@@ -30,8 +33,8 @@ template<class DeviceT> void verify(QCoreApplication &app)
     p.hostPort=55200;p.devicePort=55200;
     DeviceT backend(nullptr);
     constexpr auto points = C::Points;
-    check(backend.device().open(p),"open UDP backend");
-    until([&] { return backend.device().isOpen(); });
+    check(backend.open(p),"open UDP backend");
+    until([&] { return backend.isOpen(); });
     int signals=0;
     QObject::connect(&backend,&DeviceT::spectrumReady,&app,[&](int channel,const QVector<double> &values) {
         check(QThread::currentThread()==app.thread(),"plot data delivered to main thread");
@@ -55,21 +58,26 @@ template<class DeviceT> void verify(QCoreApplication &app)
         FakePcap::inject(session,UDPDatagram(p.host.macAddress,p.deviceMAC,p.deviceIPv4,p.hostIPv4,
                                            p.devicePort,p.hostPort,frame.mid(offset,1024)));
     until([&] { return completed&&signals==3; });
-    QStringList files;
+    // 族落盘：每帧一个 JSON，三路按通道规格顺序、名称写出功率谱。
+    QJsonObject saved;
     until([&] {
-        files.clear();QDirIterator it(output.path(),{"*.bin"},QDir::Files,QDirIterator::Subdirectories);
-        while(it.hasNext()) files<<it.next();
-        if(files.size()!=3) return false;
-        for(const auto &path:files) if(QFileInfo(path).size()!=points*8) return false;
-        return true;
+        QDirIterator it(output.path(),{"*.json"},QDir::Files,QDirIterator::Subdirectories);
+        if(!it.hasNext()) return false;
+        QFile f(it.next());
+        if(!f.open(QIODevice::ReadOnly)) return false;
+        const auto document=QJsonDocument::fromJson(f.readAll());
+        saved=document.object();
+        return document.isObject();
     });
+    const auto channels=saved.value("channels").toArray();
+    check(channels.size()==3&&saved.value("frame").toObject().value("session").toString()=="probe","one frame file per completed frame");
     for(int channel=0;channel<3;++channel) {
-        QString file;
-        for(const auto &path:files) if(QFileInfo(path).fileName().startsWith(Cdl5::channelTag(C::Specification, channel) + "_")) file=path;
-        check(!file.isEmpty(),"per-channel filenames");QFile f(file);check(f.open(QIODevice::ReadOnly),"open result");
-        const auto bytes=f.readAll();
-        for(qsizetype i=0;i<points;++i)
-            check(std::bit_cast<double>(qFromLittleEndian<quint64>(bytes.constData()+i*8))==channel+1.25,"little-endian double saved intact");
+        const auto object=channels[channel].toObject();
+        check(object.value("name").toString()==Cdl5::channelTag(C::Specification, channel),"channel names in specification order");
+        const auto rows=object.value("spectrum").toArray();
+        check(rows.size()==C::Rows&&rows[0].toArray().size()==C::Columns,"spectrum rows by range gate");
+        for(const auto &row:rows) for(const auto &value:row.toArray())
+            check(value.toDouble()==channel+1.25,"spectrum values saved");
     }
     backend.close();
     std::cout<<"PASS UDP -> Device/Collector -> consume thread -> three signals and three saved spectra\n";

@@ -39,8 +39,9 @@ template<class DeviceT> int verify(QGuiApplication &app, const char *module)
             }
         }
         if (backends != 1 || backend->parent() != page.get()) return 5;
-        auto *card = qobject_cast<DAQDeviceBase *>(backend);
-        if (!card || page->property("family").value<DAQDeviceBase *>() != card) return 7;
+        // 设备与采集卡族是同一个对象：family 即后端本身，可交叉转换到纯 C++ 族基。
+        auto *card = dynamic_cast<DAQDeviceBase *>(backend);
+        if (!card || page->property("family").value<QObject *>() != backend) return 7;
         auto *cdl5 = qobject_cast<DeviceT *>(backend);
         for (int channel = 0; channel < 3; ++channel) {
             if constexpr (std::is_same_v<DeviceT, Cdl5TenKDevice>) {
