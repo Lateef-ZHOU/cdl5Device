@@ -71,21 +71,21 @@ public:
     // 族模板层按请求参数造完整实例并备齐三路收集区；makeSelf 供看门狗重试另造新斗。
     static std::shared_ptr<Cdl5Collector> create(const DAQParameters &parameters)
     {
-        auto result = std::shared_ptr<Cdl5Collector>(new Cdl5Collector(parameters.accumSec, parameters.context));
+        auto result = std::shared_ptr<Cdl5Collector>(new Cdl5Collector(parameters));
         for (auto &channel : *result) channel.spectrum.reserve(Points);
         return result;
     }
-    std::shared_ptr<Cdl5Collector> makeSelf() const { return create({accumSec(), context()}); }
+    std::shared_ptr<Cdl5Collector> makeSelf() const { return create(parameters()); }
     int profile() const noexcept { return (binConfig_ >> 12) & 15; }
     int firstBin() const noexcept { return binConfig_ & 0x1ff; }
     bool uniformRange() const noexcept { return uniformRange_; }
-    int timeoutMs() const override { return (accumSec() + 5) * 1000; }
-    QVector<QByteArray> buildStart() const override { return {Cdl5::command(static_cast<quint32>(accumSec()))}; }
+    int timeoutMs() const override { return (parameters().accumSec + 5) * 1000; }
+    QVector<QByteArray> buildStart() const override { return {Cdl5::command(static_cast<quint32>(parameters().accumSec))}; }
     QVector<QByteArray> buildStop() const override { return {Cdl5::command(0)}; }
 
 private:
-    explicit Cdl5Collector(int seconds, DAQContext context)
-        : DAQCollector(std::move(context), std::clamp(seconds, 1, Config.maxAccumSeconds()), channels()) {}
+    explicit Cdl5Collector(DAQParameters parameters)
+        : DAQCollector(std::move(parameters), channels()) {}
 
     static std::vector<DAQChannel> channels()
     {

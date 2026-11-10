@@ -31,6 +31,18 @@ public:
         return {{"accumMin", 1}, {"accumMax", Config.maxAccumSeconds()}, {"accumDefault", 1},
                 {"saveDirDefault", QUrl::fromLocalFile(QDir::currentPath())}};
     }
+    // 型号判据：累积时间须在 CDL5 规格 的范围内，越界记录原因并返回空；不造 Collector、不发令。
+    [[nodiscard]] std::optional<DAQParameters> paramsFor(int accumSec, std::optional<WorldModel> pose,
+        std::optional<QDir> saveRoot, QString sessionDir, bool sync) const override
+    {
+        if (accumSec < 1 || accumSec > Config.maxAccumSeconds())
+        {
+            Q_EMIT this->logMessage(QStringLiteral("累积时间 %1 秒超出本型号范围（%2~%3 秒），未启动")
+                                        .arg(accumSec).arg(1).arg(Config.maxAccumSeconds()));
+            return std::nullopt;
+        }
+        return DAQParameters{accumSec, std::move(pose), std::move(saveRoot), std::move(sessionDir), sync};
+    }
     QVariantMap chartParameters(int channel = 0) const
     {
         if (channel < 0 || channel >= Config.channels) return {};

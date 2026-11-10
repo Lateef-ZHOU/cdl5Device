@@ -81,7 +81,10 @@ template<class DeviceT> int verify(QGuiApplication &app, const char *module)
         using C = typename DeviceT::CollectorType;
         if (spec["rows"].toInt() != C::Rows || spec["columns"].toInt() != C::Columns
             || cdl5->acquisitionParameters()["accumMax"].toInt() != C::Specification.maxAccumSeconds()) return 11;
-        if (card->begin(DAQParameters{1, {}}, [](auto) {}, {})) return 9; // Offline admission must reject, without starting hardware.
+        // 型号范围由 paramsFor 判定：越界返回空，begin 复核同一判据。
+        if (card->paramsFor(C::Specification.maxAccumSeconds() + 1, {}, {}, {}, false) || !card->paramsFor(1, {}, {}, {}, false)
+            || card->begin(DAQParameters{C::Specification.maxAccumSeconds() + 1}, [](auto) {}, {})) return 12;
+        if (card->begin(DAQParameters{1}, [](auto) {}, {})) return 9; // Offline admission must reject, without starting hardware.
         card->stop({});
         const QPointer<QObject> lifetime(backend);
         QTimer::singleShot(2500, &app, &QCoreApplication::quit);

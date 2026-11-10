@@ -37,8 +37,6 @@ template<Cdl5::Configuration Config> void verify()
     wrong = frame.first(1024);
     qToLittleEndian(quint32(0), wrong.data() + 16);
     check(!result->feed(wrong, stamp) && (*result)[0].spectrum.isEmpty(), "wrong profile rejected");
-    const auto clamped = C::create({999, {}});
-    check(Cdl5::decodeCommand(clamped->buildStart().front()) == Config.maxAccumSeconds(), "model accumulation upper bound");
     int packets = 0;
     for (qsizetype offset = 0; offset < frame.size(); offset += 1024) {
         const auto packet = frame.mid(offset, 1024);
