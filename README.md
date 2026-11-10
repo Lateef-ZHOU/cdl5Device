@@ -1,5 +1,7 @@
 # cdl5Device
 
+2026-11-10 用户定（波长与抽稀）：型号常量 `WavelengthM = 1550 nm` 交族基，删除 `MetersPerSecondPerMHz`。
+
 2026-11-10 用户定（线性数组）：通道规格以 `radialWind = cnr = LinearArray<double>(起点, 门距)` 给出距离轴；`radialReady` 发线性数组，页面原样交给径向风图。
 
 2026-11-10 用户定：通道规格改为起点 + 步长（第 0 门在 0 m），`radialReady` 不带斜距、`profileReady` 发均匀风廓线；页面统一用 `Wind2DView`（配置含 `rangeStart`）与 `WindBarbItem`。页面测试补充族信号经页面交给图窗不出 QML 类型警告的检查。

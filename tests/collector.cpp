@@ -118,8 +118,8 @@ int main(int argc, char **argv)
     const auto channelWith = [&](double zero) {
         DAQChannel c;
         c.rows = 1; c.columns = 128; c.radialWind = c.cnr = LinearArray<double>(0, 6); c.freqStartMHz = 15 * Cdl5::BinMHz; c.freqStepMHz = Cdl5::BinMHz;
-        c.zeroWindMHz = zero; c.metersPerSecondPerMHz = Cdl5::MetersPerSecondPerMHz; c.spectrum = peak;
-        c.process();
+        c.zeroWindMHz = zero; c.spectrum = peak;
+        c.process(RadialWind::metersPerSecondPerMHz(Cdl5::WavelengthM));
         return c;
     };
     const auto wind = channelWith(Cdl5::ZeroWindReferenceMHz), uncal = channelWith(1.0);

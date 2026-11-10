@@ -15,11 +15,11 @@ inline QString channelTag(int channel)
     return QStringLiteral("ADC0_%1m").arg(GateSpacingM[channel]);
 }
 
-// 500 MSPS、512 点 FFT，波长 1550 nm。频移向上取正，与交付上位机的径向风换算一致。
+// 500 MSPS、512 点 FFT，波长 1550 nm（λ/2 = 0.775 m/s/MHz）。频移向上取正，与交付上位机的径向风换算一致。
 inline constexpr int SampleRateHz = 500000000;
 inline constexpr int FftLength = 512;
 inline constexpr double BinMHz = SampleRateHz / 1000000.0 / FftLength;
-inline constexpr double MetersPerSecondPerMHz = 0.775;
+inline constexpr double WavelengthM = 1550e-9;
 } // namespace Cdl5
 
 // 通道规格来自型号常量；频率起点由帧头起始 bin 确定（第 i 列 = (firstBin + i)·BinMHz），收齐末包即按族标准方法处理。
@@ -43,7 +43,7 @@ public:
 
 private:
     explicit Cdl5Collector(DAQParameters parameters)
-        : DAQCollector(std::move(parameters), channels()) {}
+        : DAQCollector(std::move(parameters), channels(), Cdl5::WavelengthM) {}
 
     static std::vector<DAQChannel> channels()
     {
@@ -54,7 +54,6 @@ private:
             channel.rows = Cdl5::Rows;
             channel.columns = Cdl5::Columns;
             channel.zeroWindMHz = Cdl5::ZeroWindReferenceMHz;
-            channel.metersPerSecondPerMHz = Cdl5::MetersPerSecondPerMHz;
             channel.radialWind = channel.cnr = LinearArray<double>(Cdl5::RangeStartM, Cdl5::GateSpacingM[i]);
             channel.freqStepMHz = Cdl5::BinMHz;
         }
