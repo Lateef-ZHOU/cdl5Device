@@ -124,7 +124,7 @@ int main(int argc, char **argv)
         return c;
     };
     const auto wind = channelWith(Cdl5::ZeroWindReferenceMHz), uncal = channelWith(1.0);
-    check(wind.calibrated() && !uncal.calibrated() && std::abs(wind.radialWind.front() - (83 * 500.0 / 512 - 80) * 0.775) < 0.02
+    check(RadialWind::inBand(wind.spectrum, wind.zeroWindMHz) && !RadialWind::inBand(uncal.spectrum, uncal.zeroWindMHz) && std::abs(wind.radialWind.front() - (83 * 500.0 / 512 - 80) * 0.775) < 0.02
           && std::isnan(uncal.radialWind.front()) && wind.cnr.front() == uncal.cnr.front()
           && std::abs(wind.cnr.front() - 10 * std::log10(std::sqrt(2 * std::numbers::pi) * 90 / 256)) < 0.02,
           "known peak, real bin offset, out-of-band reference still produces identical CNR");
