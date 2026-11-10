@@ -38,9 +38,9 @@ int main(int argc, char **argv)
     check(backend.open(p),"open UDP backend");
     until([&] { return backend.isOpen(); });
     int signals=0;
-    QObject::connect(&backend,&DeviceT::spectrumReady,&app,[&](int channel,const QVector<double> &values) {
+    QObject::connect(&backend,&DeviceT::spectrumReady,&app,[&](int channel,const LinearArray2D<double> &values) {
         check(QThread::currentThread()==app.thread(),"plot data delivered to main thread");
-        check(values.size()==points&&values.front()==channel+1.25&&values.back()==channel+1.25,"three independent spectra");
+        check(static_cast<qsizetype>(values.size())==points&&values.front()==channel+1.25&&values.back()==channel+1.25,"three independent spectra");
         ++signals;
     });
     bool completed=false;

@@ -60,12 +60,15 @@ int main(int argc, char **argv)
                     return 13;
                 const auto *surfaceItem = surface->findChild<SurfaceItem *>();
                 if (!surfaceItem) return 14;
+                // 首帧前的初始轴：斜距按本路门宽，频率按默认起始 bin 15。
                 const auto grid = surfaceItem->configuration();
-                const SurfaceGrid surfaceGrid{grid["rows"].toInt(), grid["columns"].toInt()};
+                const LinearArray2D<double> axesGrid(grid["rows"].toInt(), grid["columns"].toInt(), grid["rowStart"].toDouble(),
+                    grid["rowStep"].toDouble(), grid["columnStart"].toDouble(), grid["columnStep"].toDouble());
                 const SurfaceAxes::Projection projection(SurfaceCamera{}, QSizeF(800, 600));
-                const auto axes = SurfaceAxes::makeScene(projection, surfaceGrid, 0, 1, app.font());
-                if (axes.scales[1].title != QStringLiteral("距离门 (下标)")
-                    || axes.scales[1].low != 0 || axes.scales[1].high != 239)
+                const auto axes = SurfaceAxes::makeScene(projection, axesGrid, 0, 1, app.font());
+                if (axes.scales[1].title != QStringLiteral("斜距 (m)") || axes.scales[1].low != 0
+                    || axes.scales[1].high != 239 * steps[channel] || axes.scales[0].title != QStringLiteral("频率 (MHz)")
+                    || axes.scales[0].low != 15 * Cdl5::BinMHz || axes.scales[0].high != 254 * Cdl5::BinMHz)
                     return 14;
                 const QStringList plotNames{QStringLiteral("功率谱"), QStringLiteral("径向风"), QStringLiteral("风廓线")};
                 for (int plot = 0; plot < plotNames.size(); ++plot)
@@ -76,6 +79,8 @@ int main(int argc, char **argv)
                 || !page->findChild<QObject *>(QString("barbsADC%1").arg(channel))) return 10;
             // 族信号经页面接线交给图窗；类型不符时 QML 会报警告（warned）。
             const LinearArray<double> gates(Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], std::vector<double>(240, 1));
+            Q_EMIT cdl5->spectrumReady(channel, LinearArray2D<double>(240, 240, Cdl5::RangeStartM, Cdl5::GateSpacingM[channel],
+                16 * Cdl5::BinMHz, Cdl5::BinMHz, std::vector<double>(240 * 240, 1)));
             Q_EMIT cdl5->radialReady(channel, gates, gates, true);
             Q_EMIT cdl5->profileReady(channel, std::make_shared<const VerticalWindProfileUnit>(VerticalWindProfileUnit{
                 std::chrono::system_clock::now(), LinearArray<LinAlg::Vec3>(0.0, 3.0 * (channel + 1), {{1,2,0},{3,4,0},{5,6,0}})}));

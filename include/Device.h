@@ -63,11 +63,12 @@ public:
         return {{"rows", Cdl5::Rows}, {"columns", Cdl5::Columns}, {"channels", Cdl5::Channels},
                 {"channelName", QStringLiteral("%1m").arg(step)},
                 {"rangeStart", Cdl5::RangeStartM}, {"gateSpacing", step},
+                {"freqStart", Cdl5::FirstBinDefault * Cdl5::BinMHz}, {"freqStep", Cdl5::BinMHz},
                 {"powerMax", static_cast<double>(std::numeric_limits<float>::max())}};
     }
 Q_SIGNALS:
     void lockChanged(HandleCore::ResourcePhase phase) override;
-    void spectrumReady(int channel, const QVector<double> &values) override;
+    void spectrumReady(int channel, const LinearArray2D<double> &spectrum) override;
     void radialReady(int channel, const LinearArray<double> &speeds, const LinearArray<double> &cnr, bool calibrated) override;
     void profileReady(int channel, VerticalWindProfilePtr profile) override;
 public Q_SLOTS:

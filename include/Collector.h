@@ -3,6 +3,7 @@
 #include <optional>
 #include <utility>
 #include <vector>
+#include <limits>
 #include <QString>
 #include <QVector>
 #include <DAQCollector.h>
@@ -20,6 +21,8 @@ inline constexpr int SampleRateHz = 500000000;
 inline constexpr int FftLength = 512;
 inline constexpr double BinMHz = SampleRateHz / 1000000.0 / FftLength;
 inline constexpr double WavelengthM = 1550e-9;
+// PL 0x26110401 帧头的起始 bin；只用于首帧前的初始频率轴，实际每帧以帧头为准。
+inline constexpr int FirstBinDefault = 15;
 } // namespace Cdl5
 
 // 通道规格来自型号常量；频率起点由帧头起始 bin 确定（第 i 列 = (firstBin + i)·BinMHz），收齐末包即按族标准方法处理。
@@ -51,11 +54,10 @@ private:
         for (int i = 0; i < Cdl5::Channels; ++i) {
             auto &channel = result[i];
             channel.name = Cdl5::channelTag(i);
-            channel.rows = Cdl5::Rows;
-            channel.columns = Cdl5::Columns;
+            // 列轴起点随首包帧头的起始 bin 写入。
+            channel.spectrum = LinearArray2D<double>(Cdl5::Rows, Cdl5::Columns, Cdl5::RangeStartM, Cdl5::GateSpacingM[i],
+                                                     std::numeric_limits<double>::quiet_NaN(), Cdl5::BinMHz);
             channel.zeroWindMHz = Cdl5::ZeroWindReferenceMHz;
-            channel.radialWind = channel.cnr = LinearArray<double>(Cdl5::RangeStartM, Cdl5::GateSpacingM[i]);
-            channel.freqStepMHz = Cdl5::BinMHz;
         }
         return result;
     }
@@ -79,18 +81,18 @@ private:
         }
         auto &first = front().spectrum;
         const auto count = (bytes.size() - offset) / Cdl5::RecordBytes;
-        if (count > Points - first.size()) return;
+        if (count > Points - static_cast<qsizetype>(first.size())) return;
         if (!headerReceived_) {
             binConfig_ = Cdl5::word(bytes.constData() + 16);
             headerReceived_ = true;
             frameTime_ = at;
             for (auto &spec : *this)
-                spec.freqStartMHz = firstBin() * Cdl5::BinMHz;
+                spec.spectrum.columnStart = firstBin() * Cdl5::BinMHz;
         }
         for (; offset < bytes.size(); offset += Cdl5::RecordBytes)
             for (int channel = 0; channel != Cdl5::Channels; ++channel)
-                (*this)[channel].spectrum.append(Cdl5::power(bytes.constData() + offset + channel * 4));
-        if (first.size() == Points)
+                (*this)[channel].spectrum.push_back(Cdl5::power(bytes.constData() + offset + channel * 4));
+        if (static_cast<qsizetype>(first.size()) == Points)
             complete();
     }
     quint32 binConfig_ = 0;

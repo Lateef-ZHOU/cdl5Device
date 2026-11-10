@@ -1,5 +1,7 @@
 # cdl5Device
 
+2026-11-10 用户定（二维线性数组）：通道规格给出功率谱网格（行轴为本路门宽，列轴步长 500/512 MHz，列轴起点在首包按帧头起始 bin 写入）；`FirstBinDefault = 15` 只用于首帧前的初始频率轴。页面功率谱显示真实斜距与频率。
+
 2026-11-10 用户定（波长与抽稀）：型号常量 `WavelengthM = 1550 nm` 交族基，删除 `MetersPerSecondPerMHz`。
 
 2026-11-10 用户定（线性数组）：通道规格以 `radialWind = cnr = LinearArray<double>(起点, 门距)` 给出距离轴；`radialReady` 发线性数组，页面原样交给径向风图。
