@@ -1,4 +1,5 @@
 #pragma once
+#include <cstring>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -43,29 +44,36 @@ public:
 
 private:
     explicit Cdl5Collector(DAQParameters parameters)
-        : DAQCollector(std::move(parameters), FrameBytes, Cdl5::WavelengthM) {}
+        : DAQCollector(std::move(parameters), Cdl5::WavelengthM) {}
 
-    void onFeed(const std::optional<QByteArray> &item, RxTime at) override
+    std::optional<std::vector<DAQChannel>> assemble(QByteArrayView bytes, RxTime at) override
     {
-        const auto &bytes = *item;
         // DMA emits at most ChunkBytes; receive offload can coalesce several chunks.
-        // Validate record alignment; remaining frame capacity is checked by store.
-        if (bytes.isEmpty() || bytes.size() % Cdl5::RecordBytes != 0)
-            return;
-        const bool first = received() == 0;
+        // Validate record alignment and remaining frame capacity, not the send chunk size.
+        if (bytes.isEmpty() || bytes.size() % Cdl5::RecordBytes != 0 || bytes.size() > FrameBytes - received_)
+            return std::nullopt;
+        const bool first = received_ == 0;
         // One header per complete frame, not one per UDP datagram. The header record stays in the frame.
-        if (first && (Cdl5::word(bytes.constData()) != Cdl5::FrameMagic
-                      || Cdl5::word(bytes.constData() + 4) != Cdl5::FrameFormat
-                      || Cdl5::word(bytes.constData() + 8) != ((quint32(Cdl5::Rows) << 16) | Cdl5::Columns)
-                      || ((Cdl5::word(bytes.constData() + 16) >> 12) & 15) != quint32(Cdl5::Profile)))
-            return;
-        if (store(received(), bytes) && first)
+        if (first && (Cdl5::word(bytes.data()) != Cdl5::FrameMagic
+                      || Cdl5::word(bytes.data() + 4) != Cdl5::FrameFormat
+                      || Cdl5::word(bytes.data() + 8) != ((quint32(Cdl5::Rows) << 16) | Cdl5::Columns)
+                      || ((Cdl5::word(bytes.data() + 16) >> 12) & 15) != quint32(Cdl5::Profile)))
+            return std::nullopt;
+        if (first)
             frameTime_ = at;
+        std::memcpy(raw_.data() + received_, bytes.data(), static_cast<std::size_t>(bytes.size()));
+        received_ += bytes.size();
+        if (received_ != FrameBytes)
+            return std::nullopt;
+        auto channels = decode();
+        raw_ = QByteArray();
+        return channels;
     }
 
-    std::vector<DAQChannel> decode(const QByteArray &frame) const override
+    // 凑齐后解析：帧头起始 bin 定频率起点，三路交错拆成各自的功率谱。
+    std::vector<DAQChannel> decode() const
     {
-        const char *const data = frame.constData();
+        const char *const data = raw_.constData();
         const double freqStartMHz = (Cdl5::word(data + 16) & 0x1ff) * Cdl5::BinMHz;
         std::vector<LinearArray2D<double>> spectra;
         for (int channel = 0; channel != Cdl5::Channels; ++channel) {
@@ -73,7 +81,7 @@ private:
                                  freqStartMHz, Cdl5::BinMHz);
             spectra.back().reserve(Points);
         }
-        for (qsizetype offset = Cdl5::RecordBytes; offset < frame.size(); offset += Cdl5::RecordBytes)
+        for (qsizetype offset = Cdl5::RecordBytes; offset < raw_.size(); offset += Cdl5::RecordBytes)
             for (int channel = 0; channel != Cdl5::Channels; ++channel)
                 spectra[channel].push_back(Cdl5::power(data + offset + channel * 4));
         std::vector<DAQChannel> channels;
@@ -83,5 +91,8 @@ private:
                                   wavelengthM());
         return channels;
     }
+
+    QByteArray raw_{FrameBytes, Qt::Uninitialized}; // 原样帧（含帧头记录）；解析后释放
+    qsizetype received_ = 0;                        // 已收字节，凑满 FrameBytes 即齐
 };
 static_assert(DAQCollectorLike<Cdl5Collector>);

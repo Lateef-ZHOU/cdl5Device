@@ -13,7 +13,7 @@ void verify()
 {
     using C = Cdl5Collector;
     const auto prototype = C::create({2, {}});
-    check(prototype->channels().empty() && !prototype->settled(), "no channels before a full frame");
+    check(!prototype->settled(), "no channels before a full frame");
     const auto result = prototype->makeSelf();
     const auto retry = result->makeSelf();
     const RxTime stamp = RxTime{} + std::chrono::seconds(123);
@@ -60,7 +60,7 @@ void verify()
               "channel specification from configuration and frame header");
         check(channel.cnr.size() == Cdl5::Rows, "standard processing ran on completion");
     }
-    check(retry->channels().empty() && prototype->channels().empty(), "independent receive areas");
+    check(!retry->settled() && !prototype->settled(), "independent receive areas");
     check(result->feed(QByteArray(1024, 0), stamp) && result->channels()[0].spectrum[0] == .25, "settled cannot be rewritten");
     auto missing = prototype->makeSelf();
     for (qsizetype offset = 0; offset < frame.size() - 32; offset += 1024)
@@ -75,7 +75,7 @@ void verify()
 
     // Npcap can receive seven original 1024-byte chunks as one 7168-byte batch.
     auto coalesced = prototype->makeSelf();
-    check(!coalesced->feed(frame.first(7169), stamp) && coalesced->channels().empty(),
+    check(!coalesced->feed(frame.first(7169), stamp) && !coalesced->settled(),
           "coalesced but unaligned input rejected without consuming header");
     for (qsizetype offset = 0; offset < frame.size() - 32; offset += 7168) {
         const auto batch = frame.mid(offset, std::min<qsizetype>(7168, frame.size() - 32 - offset));
