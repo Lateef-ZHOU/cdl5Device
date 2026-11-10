@@ -54,9 +54,8 @@ int main(int argc, char **argv)
                 const auto barbs = charts.at(channel * 3 + 2)->property("contentItem").value<QObject *>();
                 if (!surface || !radial || !barbs) return 12;
                 const auto positions = radial->property("specification").toMap();
-                const auto gates = positions["ranges"].value<QVector<double>>();
-                if (gates.size() != 240 || gates.back() != 239 * steps[channel]
-                    || positions["rangeMaximum"].toInt() != 240 * steps[channel]
+                if (positions["rows"].toInt() != 240 || positions["rangeStart"].toDouble() != 0
+                    || positions["gateSpacing"].toDouble() != steps[channel]
                     || barbs->property("configuration").toMap()["maxHeight"].toInt() != 240 * steps[channel])
                     return 13;
                 const auto *surfaceItem = surface->findChild<SurfaceItem *>();
@@ -75,9 +74,10 @@ int main(int argc, char **argv)
             }
             if (!page->findChild<QObject *>(QString("radialADC%1").arg(channel))
                 || !page->findChild<QObject *>(QString("barbsADC%1").arg(channel))) return 10;
-            Q_EMIT cdl5->radialReady(channel, {0, 15, 150}, {1, 2, 3}, {-9, -7, -4}, true);
-            Q_EMIT cdl5->profileReady(channel, std::make_shared<const NonuniformVerticalWindProfileUnit>(
-                NonuniformVerticalWindProfileUnit{std::chrono::system_clock::now(), {0, 10, 90}, {{1,2,0},{3,4,0},{5,6,0}}}));
+            // 族信号经页面接线交给图窗；类型不符时 QML 会报警告（warned）。
+            Q_EMIT cdl5->radialReady(channel, QVector<double>(240, 1), QVector<double>(240, -7), true);
+            Q_EMIT cdl5->profileReady(channel, std::make_shared<const VerticalWindProfileUnit>(
+                std::chrono::system_clock::now(), 0.0, 3.0 * (channel + 1), std::vector<LinAlg::Vec3>{{1,2,0},{3,4,0},{5,6,0}}));
         }
         const auto spec = cdl5->chartParameters();
         if (spec["rows"].toInt() != Cdl5::Rows || spec["columns"].toInt() != Cdl5::Columns

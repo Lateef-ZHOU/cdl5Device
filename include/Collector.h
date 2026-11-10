@@ -10,15 +10,6 @@
 #include "Configuration.h"
 
 namespace Cdl5 {
-// 第 channel 路各门的起点斜距：门下标 × 该路门宽。
-inline QVector<double> channelRanges(int channel)
-{
-    QVector<double> ranges(Rows);
-    for (int gate = 0; gate < Rows; ++gate)
-        ranges[gate] = gate * GateSpacingM[channel];
-    return ranges;
-}
-
 inline QString channelTag(int channel)
 {
     return QStringLiteral("ADC0_%1m").arg(GateSpacingM[channel]);
@@ -29,18 +20,9 @@ inline constexpr int SampleRateHz = 500000000;
 inline constexpr int FftLength = 512;
 inline constexpr double BinMHz = SampleRateHz / 1000000.0 / FftLength;
 inline constexpr double MetersPerSecondPerMHz = 0.775;
-
-// 帧头给出起始 bin；第 i 列的频率为 (firstBin + i) · BinMHz。
-inline QVector<double> binFrequencies(int firstBin, int columns)
-{
-    QVector<double> frequencies(columns);
-    for (int i = 0; i < columns; ++i)
-        frequencies[i] = (firstBin + i) * BinMHz;
-    return frequencies;
-}
 } // namespace Cdl5
 
-// 通道规格来自型号常量；频率轴由帧头起始 bin 确定，收齐末包即按族标准方法处理。
+// 通道规格来自型号常量；频率起点由帧头起始 bin 确定（第 i 列 = (firstBin + i)·BinMHz），收齐末包即按族标准方法处理。
 class Cdl5Collector final : public DAQCollector
 {
 public:
@@ -73,7 +55,9 @@ private:
             channel.columns = Cdl5::Columns;
             channel.zeroWindMHz = Cdl5::ZeroWindReferenceMHz;
             channel.metersPerSecondPerMHz = Cdl5::MetersPerSecondPerMHz;
-            channel.rangeM = Cdl5::channelRanges(i);
+            channel.rangeStartM = Cdl5::RangeStartM;
+            channel.rangeStepM = Cdl5::GateSpacingM[i];
+            channel.freqStepMHz = Cdl5::BinMHz;
         }
         return result;
     }
@@ -103,7 +87,7 @@ private:
             headerReceived_ = true;
             frameTime_ = at;
             for (auto &spec : *this)
-                spec.freqMHz = Cdl5::binFrequencies(firstBin(), Cdl5::Columns);
+                spec.freqStartMHz = firstBin() * Cdl5::BinMHz;
         }
         for (; offset < bytes.size(); offset += Cdl5::RecordBytes)
             for (int channel = 0; channel != Cdl5::Channels; ++channel)

@@ -62,16 +62,14 @@ public:
         const int step = Cdl5::GateSpacingM[channel];
         return {{"rows", Cdl5::Rows}, {"columns", Cdl5::Columns}, {"channels", Cdl5::Channels},
                 {"channelName", QStringLiteral("%1m").arg(step)},
-                {"rangeMaximum", step * Cdl5::Rows},
-                {"ranges", QVariant::fromValue(Cdl5::channelRanges(channel))},
+                {"rangeStart", Cdl5::RangeStartM}, {"gateSpacing", step},
                 {"powerMax", static_cast<double>(std::numeric_limits<float>::max())}};
     }
 Q_SIGNALS:
     void lockChanged(HandleCore::ResourcePhase phase) override;
     void spectrumReady(int channel, const QVector<double> &values) override;
-    void radialReady(int channel, const QVector<double> &ranges, const QVector<double> &speeds,
-                     const QVector<double> &cnr, bool calibrated) override;
-    void profileReady(int channel, NonuniformVerticalWindProfilePtr profile) override;
+    void radialReady(int channel, const QVector<double> &speeds, const QVector<double> &cnr, bool calibrated) override;
+    void profileReady(int channel, VerticalWindProfilePtr profile) override;
 public Q_SLOTS:
     bool open(int interfaceIndex)
     {

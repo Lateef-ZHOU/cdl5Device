@@ -54,8 +54,9 @@ void verify()
     for (int c = 0; c < 3; ++c) {
         const auto &channel = (*result)[c];
         check(channel.name == Cdl5::channelTag(c) && channel.rows == Cdl5::Rows && channel.columns == Cdl5::Columns
-              && channel.freqMHz.size() == Cdl5::Columns && channel.freqMHz.front() == 15 * Cdl5::BinMHz
-              && channel.zeroWindMHz == Cdl5::ZeroWindReferenceMHz && channel.rangeM == Cdl5::channelRanges(c),
+              && channel.freqStartMHz == 15 * Cdl5::BinMHz && channel.freqStepMHz == Cdl5::BinMHz
+              && channel.zeroWindMHz == Cdl5::ZeroWindReferenceMHz && channel.rangeStartM == 0
+              && channel.rangeStepM == Cdl5::GateSpacingM[c],
               "channel specification from configuration and frame header");
         check(channel.cnr.size() == Cdl5::Rows, "standard processing ran on completion");
     }
@@ -103,13 +104,10 @@ int main(int argc, char **argv)
     }};
     constexpr std::array steps{6, 15, 30};
     for (int channel = 0; channel < 3; ++channel) {
-        const auto positions = Cdl5::channelRanges(channel);
-        check(positions.size() == 240, "240 gates per channel");
-        const auto profile = WindProfile::Calc(beams, positions, RxTime{});
-        check(profile && profile->heights.size() == 240, "separate wind profile for each grid");
+        const auto profile = WindProfile::Calc(beams, Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], RxTime{});
+        check(profile && profile->winds.size() == 240, "separate wind profile for each grid");
         for (int gate = 0; gate < 240; ++gate)
-            check(positions[gate] == gate * steps[channel]
-                  && std::abs(profile->heights[gate] - positions[gate] / 2) < 1e-9,
+            check(std::abs(profile->heightAt(gate) - gate * steps[channel] / 2.0) < 1e-9,
                   "gate origins and world elevation projected height");
     }
     QVector<double> peak(128);
@@ -117,7 +115,7 @@ int main(int argc, char **argv)
     // 族标准处理：起始 bin 15 的频率轴，参考在带内换算风速，带外只出 CNR。
     const auto channelWith = [&](double zero) {
         DAQChannel c;
-        c.rows = 1; c.columns = 128; c.rangeM = {0}; c.freqMHz = Cdl5::binFrequencies(15, 128);
+        c.rows = 1; c.columns = 128; c.rangeStepM = 6; c.freqStartMHz = 15 * Cdl5::BinMHz; c.freqStepMHz = Cdl5::BinMHz;
         c.zeroWindMHz = zero; c.metersPerSecondPerMHz = Cdl5::MetersPerSecondPerMHz; c.spectrum = peak;
         c.process();
         return c;
@@ -138,12 +136,12 @@ int main(int argc, char **argv)
               "complete captured spectrum and ADC0 header metadata");
         for (int channel = 0; channel < Cdl5::Channels; ++channel) {
             const auto &measured = (*collector)[channel];
-            check(measured.cnr.size() == measured.rangeM.size()
+            check(measured.cnr.size() == Cdl5::Rows
                   && std::ranges::any_of(measured.cnr, [](double v) { return std::isfinite(v); }),
                   "real spectrum produces CNR on completion");
             std::cout << "Replay " << measured.name.toStdString()
-                      << ": " << measured.rangeM.size() << " gates, first bin " << collector->firstBin()
-                      << ", range " << measured.rangeM.first() << ".." << measured.rangeM.last() << " m\n";
+                      << ": " << Cdl5::Rows << " gates, first bin " << collector->firstBin() << ", range "
+                      << measured.rangeStartM << ".." << measured.rangeStartM + (Cdl5::Rows - 1) * measured.rangeStepM << " m\n";
         }
     }
 }

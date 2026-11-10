@@ -11,6 +11,7 @@ inline constexpr int Rows = 240;
 inline constexpr int Columns = 240;
 inline constexpr int Lanes = 6;
 inline constexpr int Channels = 3;
+inline constexpr double RangeStartM = 0.0; // 第 0 门斜距；各路第 k 门 = RangeStartM + k·门宽
 inline constexpr std::array<int, Channels> GateSpacingM{6, 15, 30};
 // FPGA 累积计数寄存器 16 位：65535 次触发折合的整秒数。
 inline constexpr int MaxAccumSeconds = 65535 / RateHz;

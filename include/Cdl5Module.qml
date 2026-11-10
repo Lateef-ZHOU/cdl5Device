@@ -33,30 +33,30 @@ ModulePage {
             },
             Page {
                 title: qsTr("%1·径向风").arg(adc.spec.channelName)
-                contentItem: NonuniformWind2DView {
+                contentItem: Wind2DView {
                     id: radial
                     objectName: "radialADC" + adc.channel
                     specification: ({
+                            rows: adc.spec.rows,
+                            rangeStart: adc.spec.rangeStart,
+                            gateSpacing: adc.spec.gateSpacing,
                             windMin: -60,
                             windMax: 60,
                             cnrMin: -50,
-                            cnrMax: 50,
-                            ranges: adc.spec.ranges,
-                            rangeMinimum: 0,
-                            rangeMaximum: adc.spec.rangeMaximum
+                            cnrMax: 50
                         })
                 }
             },
             Page {
                 title: qsTr("%1·风廓线").arg(adc.spec.channelName)
-                contentItem: NonuniformWindBarbItem {
+                contentItem: WindBarbItem {
                     id: barbs
                     objectName: "barbsADC" + adc.channel
                     configuration: ({
                             heightBins: 1,
                             windowSeconds: 120,
                             columnSeconds: 1,
-                            maxHeight: adc.spec.rangeMaximum
+                            maxHeight: adc.spec.rangeStart + adc.spec.rows * adc.spec.gateSpacing
                         })
                 }
             }
@@ -67,11 +67,11 @@ ModulePage {
                 if (channel === adc.channel)
                     surface.updateSpectrum(values);
             }
-            function onRadialReady(channel, ranges, speeds, cnr, calibrated) {
+            function onRadialReady(channel, speeds, cnr, calibrated) {
                 if (channel !== adc.channel)
                     return;
-                radial.updateWS(ranges, speeds);
-                radial.updateCNR(ranges, cnr);
+                radial.updateWS(speeds);
+                radial.updateCNR(cnr);
                 if (!calibrated)
                     root.logMessage(qsTr("ADC0·%1：CNR 已更新。零风速参考频率不在本帧频带内，风速缺测。").arg(adc.spec.channelName));
             }
