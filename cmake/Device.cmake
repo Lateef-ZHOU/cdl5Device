@@ -5,16 +5,16 @@ set(TASKCORE_WITH_PCAP_FORMS ON)
 if(NOT TARGET Lidar::Algorithm)
     FetchContent_Declare(lidar_algorithm
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/Algorithm.git
-        GIT_TAG a877748d660805cdb1244f30c44172caf08d72ff)
+        GIT_TAG e036f076fcffc82b58deff7c9c42a23842768c9e)
     FetchContent_MakeAvailable(lidar_algorithm)
 endif()
 if(NOT TARGET Lidar::TaskUI)
     FetchContent_Declare(lidar_chartcore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/ChartCore.git
-        GIT_TAG 296a52bb13c41639a7909d170a5372647ad6ee69)
+        GIT_TAG fe35c3725b492627e0c6b1ccf74168c9d33069dc)
     FetchContent_Declare(lidar_taskcore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/TaskCore.git
-        GIT_TAG 5c75a25bfe462830a31a2d69fe2cdd308d6f967d)
+        GIT_TAG aa0201c9c3fee1bb11fb71f9f108b77340723a61)
     FetchContent_MakeAvailable(lidar_taskcore)
 endif()
 set(import_paths)

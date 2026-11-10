@@ -55,8 +55,8 @@ void verify()
         const auto &channel = (*result)[c];
         check(channel.name == Cdl5::channelTag(c) && channel.rows == Cdl5::Rows && channel.columns == Cdl5::Columns
               && channel.freqStartMHz == 15 * Cdl5::BinMHz && channel.freqStepMHz == Cdl5::BinMHz
-              && channel.zeroWindMHz == Cdl5::ZeroWindReferenceMHz && channel.rangeStartM == 0
-              && channel.rangeStepM == Cdl5::GateSpacingM[c],
+              && channel.zeroWindMHz == Cdl5::ZeroWindReferenceMHz && channel.radialWind.start == 0
+              && channel.radialWind.step == Cdl5::GateSpacingM[c] && channel.cnr.sameAxis(channel.radialWind),
               "channel specification from configuration and frame header");
         check(channel.cnr.size() == Cdl5::Rows, "standard processing ran on completion");
     }
@@ -97,17 +97,19 @@ int main(int argc, char **argv)
           "duration beyond the 16-bit accumulation register rejected");
     verify();
     static_assert(Cdl5::ZeroWindReferenceMHz == 80.0, "zero-wind reference is a fixed model constant");
-    const QVector<double> radialSpeeds(240, 1.0);
+    const std::vector<double> radialSpeeds(240, 1.0);
     const std::array<WindProfile::Input, 4> beams{{
-        {WorldModel(0, 30, 0), radialSpeeds}, {WorldModel(90, 30, 0), radialSpeeds},
-        {WorldModel(180, 30, 0), radialSpeeds}, {WorldModel(270, 30, 0), radialSpeeds}
+        {WorldModel(0, 30, 0), {}}, {WorldModel(90, 30, 0), {}},
+        {WorldModel(180, 30, 0), {}}, {WorldModel(270, 30, 0), {}}
     }};
     constexpr std::array steps{6, 15, 30};
     for (int channel = 0; channel < 3; ++channel) {
-        const auto profile = WindProfile::Calc(beams, Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], RxTime{});
+        std::array<WindProfile::Input, 4> grid = beams;
+        for (auto &beam : grid) beam.ws = LinearArray<double>(Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], radialSpeeds);
+        const auto profile = WindProfile::Calc(grid, RxTime{});
         check(profile && profile->winds.size() == 240, "separate wind profile for each grid");
         for (int gate = 0; gate < 240; ++gate)
-            check(std::abs(profile->heightAt(gate) - gate * steps[channel] / 2.0) < 1e-9,
+            check(std::abs(profile->winds.positionAt(gate) - gate * steps[channel] / 2.0) < 1e-9,
                   "gate origins and world elevation projected height");
     }
     QVector<double> peak(128);
@@ -115,7 +117,7 @@ int main(int argc, char **argv)
     // 族标准处理：起始 bin 15 的频率轴，参考在带内换算风速，带外只出 CNR。
     const auto channelWith = [&](double zero) {
         DAQChannel c;
-        c.rows = 1; c.columns = 128; c.rangeStepM = 6; c.freqStartMHz = 15 * Cdl5::BinMHz; c.freqStepMHz = Cdl5::BinMHz;
+        c.rows = 1; c.columns = 128; c.radialWind = c.cnr = LinearArray<double>(0, 6); c.freqStartMHz = 15 * Cdl5::BinMHz; c.freqStepMHz = Cdl5::BinMHz;
         c.zeroWindMHz = zero; c.metersPerSecondPerMHz = Cdl5::MetersPerSecondPerMHz; c.spectrum = peak;
         c.process();
         return c;
@@ -141,7 +143,7 @@ int main(int argc, char **argv)
                   "real spectrum produces CNR on completion");
             std::cout << "Replay " << measured.name.toStdString()
                       << ": " << Cdl5::Rows << " gates, first bin " << collector->firstBin() << ", range "
-                      << measured.rangeStartM << ".." << measured.rangeStartM + (Cdl5::Rows - 1) * measured.rangeStepM << " m\n";
+                      << measured.radialWind.positionAt(0) << ".." << measured.radialWind.positionAt(Cdl5::Rows - 1) << " m\n";
         }
     }
 }

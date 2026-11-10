@@ -75,9 +75,10 @@ int main(int argc, char **argv)
             if (!page->findChild<QObject *>(QString("radialADC%1").arg(channel))
                 || !page->findChild<QObject *>(QString("barbsADC%1").arg(channel))) return 10;
             // 族信号经页面接线交给图窗；类型不符时 QML 会报警告（warned）。
-            Q_EMIT cdl5->radialReady(channel, QVector<double>(240, 1), QVector<double>(240, -7), true);
-            Q_EMIT cdl5->profileReady(channel, std::make_shared<const VerticalWindProfileUnit>(
-                std::chrono::system_clock::now(), 0.0, 3.0 * (channel + 1), std::vector<LinAlg::Vec3>{{1,2,0},{3,4,0},{5,6,0}}));
+            const LinearArray<double> gates(Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], std::vector<double>(240, 1));
+            Q_EMIT cdl5->radialReady(channel, gates, gates, true);
+            Q_EMIT cdl5->profileReady(channel, std::make_shared<const VerticalWindProfileUnit>(VerticalWindProfileUnit{
+                std::chrono::system_clock::now(), LinearArray<LinAlg::Vec3>(0.0, 3.0 * (channel + 1), {{1,2,0},{3,4,0},{5,6,0}})}));
         }
         const auto spec = cdl5->chartParameters();
         if (spec["rows"].toInt() != Cdl5::Rows || spec["columns"].toInt() != Cdl5::Columns

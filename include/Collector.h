@@ -55,8 +55,7 @@ private:
             channel.columns = Cdl5::Columns;
             channel.zeroWindMHz = Cdl5::ZeroWindReferenceMHz;
             channel.metersPerSecondPerMHz = Cdl5::MetersPerSecondPerMHz;
-            channel.rangeStartM = Cdl5::RangeStartM;
-            channel.rangeStepM = Cdl5::GateSpacingM[i];
+            channel.radialWind = channel.cnr = LinearArray<double>(Cdl5::RangeStartM, Cdl5::GateSpacingM[i]);
             channel.freqStepMHz = Cdl5::BinMHz;
         }
         return result;

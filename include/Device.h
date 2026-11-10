@@ -68,7 +68,7 @@ public:
 Q_SIGNALS:
     void lockChanged(HandleCore::ResourcePhase phase) override;
     void spectrumReady(int channel, const QVector<double> &values) override;
-    void radialReady(int channel, const QVector<double> &speeds, const QVector<double> &cnr, bool calibrated) override;
+    void radialReady(int channel, const LinearArray<double> &speeds, const LinearArray<double> &cnr, bool calibrated) override;
     void profileReady(int channel, VerticalWindProfilePtr profile) override;
 public Q_SLOTS:
     bool open(int interfaceIndex)

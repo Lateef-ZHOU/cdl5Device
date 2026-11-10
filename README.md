@@ -1,5 +1,7 @@
 # cdl5Device
 
+2026-11-10 用户定（线性数组）：通道规格以 `radialWind = cnr = LinearArray<double>(起点, 门距)` 给出距离轴；`radialReady` 发线性数组，页面原样交给径向风图。
+
 2026-11-10 用户定：通道规格改为起点 + 步长（第 0 门在 0 m），`radialReady` 不带斜距、`profileReady` 发均匀风廓线；页面统一用 `Wind2DView`（配置含 `rangeStart`）与 `WindBarbItem`。页面测试补充族信号经页面交给图窗不出 QML 类型警告的检查。
 
 2026-11-10 用户定：课题组只使用 PL `0x26110401`（Profile 7、10 kHz、ADC0 的 6/15/30 m 三路均匀门距），删除 FourK/FiveK 与三路 ADC 的旧 TenK 规格，连同分段门距、帧头统一门距标志和两个旧页面。型号模板拍平为单一具体类：`Cdl5Device`（C++ 后端）、`Cdl5Module`（QML 页面）、`Cdl5Collector`；规格是 `Configuration.h` 里的一组常量。累积上限随之为 1–6 s（16 位计数 / 10 kHz），传输层命令解码同样拒绝超过 6 s 的请求；Linux DMA 端只接受该 Profile、lane 与尺寸。会话目录标识沿用 `Cdl510K`。下文带日期的旧条目只作追溯。
