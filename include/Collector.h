@@ -3,7 +3,6 @@
 #include <optional>
 #include <utility>
 #include <vector>
-#include <limits>
 #include <QString>
 #include <QVector>
 #include <DAQCollector.h>
@@ -25,77 +24,64 @@ inline constexpr double WavelengthM = 1550e-9;
 inline constexpr int FirstBinDefault = 15;
 } // namespace Cdl5
 
-// 通道规格来自型号常量；频率起点由帧头起始 bin 确定（第 i 列 = (firstBin + i)·BinMHz），收齐末包即按族标准方法处理。
+// 一帧 = 一条帧头记录 + Rows × Columns 条数据记录，每条 32 字节、含三路 FP32。收包只校验帧头与记录对齐并按序放置字节；
+// 凑齐后解析：频率起点由帧头起始 bin 确定（第 i 列 = (firstBin + i)·BinMHz），三路交错拆成各自的功率谱。
 class Cdl5Collector final : public DAQCollector
 {
 public:
     static constexpr qsizetype Points = Cdl5::Rows * Cdl5::Columns;
-    // 族模板层按请求参数造完整实例并备齐三路收集区；makeSelf 供看门狗重试另造新斗。
+    static constexpr qsizetype FrameBytes = (Points + 1) * Cdl5::RecordBytes;
+    // 族模板层按请求参数造完整实例；makeSelf 供看门狗重试另造新斗。
     static std::shared_ptr<Cdl5Collector> create(const DAQParameters &parameters)
     {
-        auto result = std::shared_ptr<Cdl5Collector>(new Cdl5Collector(parameters));
-        for (auto &channel : *result) channel.spectrum.reserve(Points);
-        return result;
+        return std::shared_ptr<Cdl5Collector>(new Cdl5Collector(parameters));
     }
     std::shared_ptr<Cdl5Collector> makeSelf() const { return create(parameters()); }
-    int profile() const noexcept { return (binConfig_ >> 12) & 15; }
-    int firstBin() const noexcept { return binConfig_ & 0x1ff; }
     int timeoutMs() const override { return (parameters().accumSec + 5) * 1000; }
     QVector<QByteArray> buildStart() const override { return {Cdl5::command(static_cast<quint32>(parameters().accumSec))}; }
     QVector<QByteArray> buildStop() const override { return {Cdl5::command(0)}; }
 
 private:
     explicit Cdl5Collector(DAQParameters parameters)
-        : DAQCollector(std::move(parameters), channels(), Cdl5::WavelengthM) {}
-
-    static std::vector<DAQChannel> channels()
-    {
-        std::vector<DAQChannel> result(Cdl5::Channels);
-        for (int i = 0; i < Cdl5::Channels; ++i) {
-            auto &channel = result[i];
-            channel.name = Cdl5::channelTag(i);
-            // 列轴起点随首包帧头的起始 bin 写入。
-            channel.spectrum = LinearArray2D<double>(Cdl5::Rows, Cdl5::Columns, Cdl5::RangeStartM, Cdl5::GateSpacingM[i],
-                                                     std::numeric_limits<double>::quiet_NaN(), Cdl5::BinMHz);
-            channel.zeroWindMHz = Cdl5::ZeroWindReferenceMHz;
-        }
-        return result;
-    }
+        : DAQCollector(std::move(parameters), FrameBytes, Cdl5::WavelengthM) {}
 
     void onFeed(const std::optional<QByteArray> &item, RxTime at) override
     {
         const auto &bytes = *item;
         // DMA emits at most ChunkBytes; receive offload can coalesce several chunks.
-        // Validate record alignment and remaining frame capacity, not the send chunk size.
+        // Validate record alignment; remaining frame capacity is checked by store.
         if (bytes.isEmpty() || bytes.size() % Cdl5::RecordBytes != 0)
             return;
-        qsizetype offset = 0;
-        if (!headerReceived_) {
-            // One header per complete frame, not one per UDP datagram. No per-record meta lookup.
-            if (Cdl5::word(bytes.constData()) != Cdl5::FrameMagic
-                || Cdl5::word(bytes.constData() + 4) != Cdl5::FrameFormat
-                || Cdl5::word(bytes.constData() + 8) != ((quint32(Cdl5::Rows) << 16) | Cdl5::Columns)
-                || ((Cdl5::word(bytes.constData() + 16) >> 12) & 15) != quint32(Cdl5::Profile))
-                return;
-            offset = Cdl5::RecordBytes;
-        }
-        auto &first = front().spectrum;
-        const auto count = (bytes.size() - offset) / Cdl5::RecordBytes;
-        if (count > Points - static_cast<qsizetype>(first.size())) return;
-        if (!headerReceived_) {
-            binConfig_ = Cdl5::word(bytes.constData() + 16);
-            headerReceived_ = true;
+        const bool first = received() == 0;
+        // One header per complete frame, not one per UDP datagram. The header record stays in the frame.
+        if (first && (Cdl5::word(bytes.constData()) != Cdl5::FrameMagic
+                      || Cdl5::word(bytes.constData() + 4) != Cdl5::FrameFormat
+                      || Cdl5::word(bytes.constData() + 8) != ((quint32(Cdl5::Rows) << 16) | Cdl5::Columns)
+                      || ((Cdl5::word(bytes.constData() + 16) >> 12) & 15) != quint32(Cdl5::Profile)))
+            return;
+        if (store(received(), bytes) && first)
             frameTime_ = at;
-            for (auto &spec : *this)
-                spec.spectrum.columnStart = firstBin() * Cdl5::BinMHz;
-        }
-        for (; offset < bytes.size(); offset += Cdl5::RecordBytes)
-            for (int channel = 0; channel != Cdl5::Channels; ++channel)
-                (*this)[channel].spectrum.push_back(Cdl5::power(bytes.constData() + offset + channel * 4));
-        if (static_cast<qsizetype>(first.size()) == Points)
-            complete();
     }
-    quint32 binConfig_ = 0;
-    bool headerReceived_ = false; // Distinguishes a header-only first datagram from no frame yet.
+
+    std::vector<DAQChannel> decode(const QByteArray &frame) const override
+    {
+        const char *const data = frame.constData();
+        const double freqStartMHz = (Cdl5::word(data + 16) & 0x1ff) * Cdl5::BinMHz;
+        std::vector<LinearArray2D<double>> spectra;
+        for (int channel = 0; channel != Cdl5::Channels; ++channel) {
+            spectra.emplace_back(Cdl5::Rows, Cdl5::Columns, Cdl5::RangeStartM, Cdl5::GateSpacingM[channel],
+                                 freqStartMHz, Cdl5::BinMHz);
+            spectra.back().reserve(Points);
+        }
+        for (qsizetype offset = Cdl5::RecordBytes; offset < frame.size(); offset += Cdl5::RecordBytes)
+            for (int channel = 0; channel != Cdl5::Channels; ++channel)
+                spectra[channel].push_back(Cdl5::power(data + offset + channel * 4));
+        std::vector<DAQChannel> channels;
+        channels.reserve(Cdl5::Channels);
+        for (int channel = 0; channel != Cdl5::Channels; ++channel)
+            channels.emplace_back(Cdl5::channelTag(channel), std::move(spectra[channel]), Cdl5::ZeroWindReferenceMHz,
+                                  wavelengthM());
+        return channels;
+    }
 };
 static_assert(DAQCollectorLike<Cdl5Collector>);
