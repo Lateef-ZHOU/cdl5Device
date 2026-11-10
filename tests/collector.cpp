@@ -9,9 +9,9 @@
 #include <type_traits>
 void check(bool value, const char *reason)
 { if (!value) { std::cerr << reason << '\n'; std::exit(1); } }
-template<Cdl5::Configuration Config> void verify()
+void verify()
 {
-    using C = Cdl5Collector<Config>;
+    using C = Cdl5Collector;
     const auto prototype = C::create({2, {}});
     check(prototype->size() == 3 && (*prototype)[0].spectrum.capacity() >= C::Points, "factory reserves every channel");
     const auto result = prototype->makeSelf();
@@ -20,10 +20,10 @@ template<Cdl5::Configuration Config> void verify()
     const RxTime stamp = RxTime{} + std::chrono::seconds(123);
     QByteArray frame((C::Points + 1) * 32, char(-1));
     qToLittleEndian(Cdl5::FrameMagic, frame.data());
-    qToLittleEndian(quint32(Config.frameFormat()), frame.data() + 4);
-    qToLittleEndian(quint32((Config.rows << 16) | Config.columns), frame.data() + 8);
+    qToLittleEndian(Cdl5::FrameFormat, frame.data() + 4);
+    qToLittleEndian(quint32((Cdl5::Rows << 16) | Cdl5::Columns), frame.data() + 8);
     qToLittleEndian(quint32(25000), frame.data() + 12);
-    qToLittleEndian(quint32((10000 << 16) | (Config.profile << 12) | 15), frame.data() + 16);
+    qToLittleEndian(quint32((10000 << 16) | (Cdl5::Profile << 12) | 15), frame.data() + 16);
     for (qsizetype i = 0; i < C::Points; ++i)
         for (int c = 0; c < 3; ++c)
             qToLittleEndian(std::bit_cast<quint32>(float(i) + 0.25f * (c + 1)), frame.data() + (i + 1) * 32 + c * 4);
@@ -44,21 +44,20 @@ template<Cdl5::Configuration Config> void verify()
         check(result->feed(packet, stamp) == last, "complete only at exact full frame size");
         ++packets;
     }
-    check(packets == (Config.rows == 500 ? 2001 : 1801), "1024-byte chunks and 32-byte tail");
+    check(packets == 1801, "1024-byte chunks and 32-byte tail");
     for (qsizetype i = 0; i < C::Points; ++i)
         for (int c = 0; c < 3; ++c)
             check((*result)[c].spectrum[i] == double(i) + 0.25 * (c + 1), "FP32 LE decoded and widened in arrival order, meta ignored");
     check(result->frameTime() == stamp && retry->frameTime() == RxTime{}, "first packet stamp and fresh retry");
-    check(result->firstBin() == 15 && result->profile() == Config.profile, "frame bin metadata");
-    // 通道规格：频率轴取帧头起始 bin，多门宽规格的距离轴固定，其余规格按帧头距离模式。
+    check(result->firstBin() == 15 && result->profile() == Cdl5::Profile, "frame bin metadata");
+    // 通道规格：频率轴取帧头起始 bin，距离轴按各路门宽固定。
     for (int c = 0; c < 3; ++c) {
         const auto &channel = (*result)[c];
-        check(channel.name == Cdl5::channelTag(Config, c) && channel.rows == Config.rows && channel.columns == Config.columns
-              && channel.freqMHz.size() == Config.columns && channel.freqMHz.front() == 15 * Cdl5::BinMHz
-              && channel.zeroWindMHz == Cdl5::ZeroWindReferenceMHz
-              && channel.rangeM == Cdl5::channelRanges(Config, c, result->uniformRange()),
+        check(channel.name == Cdl5::channelTag(c) && channel.rows == Cdl5::Rows && channel.columns == Cdl5::Columns
+              && channel.freqMHz.size() == Cdl5::Columns && channel.freqMHz.front() == 15 * Cdl5::BinMHz
+              && channel.zeroWindMHz == Cdl5::ZeroWindReferenceMHz && channel.rangeM == Cdl5::channelRanges(c),
               "channel specification from configuration and frame header");
-        check(channel.cnr.size() == (channel.rangeM.isEmpty() ? 0 : Config.rows), "standard processing ran on completion");
+        check(channel.cnr.size() == Cdl5::Rows, "standard processing ran on completion");
     }
     check((*retry)[0].spectrum.isEmpty() && (*prototype)[0].spectrum.isEmpty(), "independent receive areas");
     check(result->feed(QByteArray(1024, 0), stamp) && (*result)[0].spectrum[0] == .25, "settled cannot be rewritten");
@@ -89,12 +88,13 @@ template<Cdl5::Configuration Config> void verify()
 }
 int main(int argc, char **argv)
 {
-    static_assert(std::is_same_v<decltype(Cdl5FourKCollector::create({1, {}})), std::shared_ptr<Cdl5FourKCollector>>);
+    static_assert(std::is_same_v<decltype(Cdl5Collector::create({1})), std::shared_ptr<Cdl5Collector>>);
     const auto unaligned = QByteArray::fromHex("780000a03f");
     check(Cdl5::power(unaligned.constData() + 1) == 1.25, "unaligned little-endian float bit interpretation");
     check(Cdl5::command(2).toHex() == "43444c3502000000", "command wire bytes");
-    check(!Cdl5::decodeCommand(Cdl5::command(17)), "invalid duration rejected");
-    verify<Cdl5::FourK>(); verify<Cdl5::FiveK>(); verify<Cdl5::TenKAdc0>();
+    check(Cdl5::decodeCommand(Cdl5::command(Cdl5::MaxAccumSeconds)) && !Cdl5::decodeCommand(Cdl5::command(Cdl5::MaxAccumSeconds + 1)),
+          "duration beyond the 16-bit accumulation register rejected");
+    verify();
     static_assert(Cdl5::ZeroWindReferenceMHz == 80.0, "zero-wind reference is a fixed model constant");
     const QVector<double> radialSpeeds(240, 1.0);
     const std::array<WindProfile::Input, 4> beams{{
@@ -103,10 +103,8 @@ int main(int argc, char **argv)
     }};
     constexpr std::array steps{6, 15, 30};
     for (int channel = 0; channel < 3; ++channel) {
-        const auto positions = Cdl5::channelRanges(Cdl5::TenKAdc0, channel, false);
-        check(positions.size() == 240
-              && positions == Cdl5::channelRanges(Cdl5::TenKAdc0, channel, true),
-              "new positions independent of wire range flag");
+        const auto positions = Cdl5::channelRanges(channel);
+        check(positions.size() == 240, "240 gates per channel");
         const auto profile = WindProfile::Calc(beams, positions, RxTime{});
         check(profile && profile->heights.size() == 240, "separate wind profile for each grid");
         for (int gate = 0; gate < 240; ++gate)
@@ -114,18 +112,6 @@ int main(int argc, char **argv)
                   && std::abs(profile->heights[gate] - positions[gate] / 2) < 1e-9,
                   "gate origins and world elevation projected height");
     }
-    const auto ranges = Cdl5::gateRanges(8, false, 450);
-    check(ranges.size() == 450 && ranges[199] == 2985 && ranges[200] == 3000
-          && ranges[349] == 11940 && ranges[350] == 12000 && ranges.last() == 26850,
-          "Profile 8 mixed gate origins match host coordinates");
-    check(Cdl5::gateRanges(8, true, 450).last() == 26940 && Cdl5::gateRanges(1, false, 450).isEmpty(),
-          "frame-selected uniform mode and unsupported profile");
-    const auto tenK = Cdl5::gateRanges(7, false, 240);
-    check(tenK.size() == 240 && tenK[199] == 2985 && tenK[200] == 3000 && tenK.last() == 5340,
-          "Profile 7 mixed gates span 5.4 km");
-    check(Cdl5::gateRanges(7, true, 240).last() == 14340
-          && Cdl5::gateRanges(9, false, 500).last() == 34350
-          && Cdl5::gateRanges(9, true, 500).isEmpty(), "uniform P7 and mixed P9 geometry");
     QVector<double> peak(128);
     for (int i = 0; i < 128; ++i) peak[i] = 2 + 30 * std::exp(-0.5 * std::pow((i - 68) / 3.0, 2));
     // 族标准处理：起始 bin 15 的频率轴，参考在带内换算风速，带外只出 CNR。
@@ -141,17 +127,16 @@ int main(int argc, char **argv)
           && std::isnan(uncal.radialWind.front()) && wind.cnr.front() == uncal.cnr.front()
           && std::abs(wind.cnr.front() - 10 * std::log10(std::sqrt(2 * std::numbers::pi) * 90 / 256)) < 0.02,
           "known peak, real bin offset, out-of-band reference still produces identical CNR");
-    std::cout << "PASS three FPGA geometries, FP32, prototype/retry, chunks and coalesced batches\n";
-    const auto replay = []<class Collector>(const QString &path) {
-        QFile file(path);
+    std::cout << "PASS ADC0 6/15/30 m geometry, FP32, retry, chunks and coalesced batches\n";
+    // 参数为实采帧文件路径：逐个回放并检查三路都能出 CNR。
+    for (int i = 1; i < argc; ++i) {
+        QFile file(QString::fromLocal8Bit(argv[i]));
         check(file.open(QIODevice::ReadOnly), "open captured frame");
-        const auto collector = Collector::create({1, {}});
+        const auto collector = Cdl5Collector::create({1});
         while (!file.atEnd()) collector->feed(file.read(7168), {});
-        constexpr auto config = Collector::Specification;
-        check(collector->settled() && collector->profile() == config.profile, "complete captured spectrum");
-        if constexpr (config.adc0Multires())
-            check(collector->firstBin() == 15, "ADC0 capture header metadata");
-        for (int channel = 0; channel < config.channels; ++channel) {
+        check(collector->settled() && collector->profile() == Cdl5::Profile && collector->firstBin() == 15,
+              "complete captured spectrum and ADC0 header metadata");
+        for (int channel = 0; channel < Cdl5::Channels; ++channel) {
             const auto &measured = (*collector)[channel];
             check(measured.cnr.size() == measured.rangeM.size()
                   && std::ranges::any_of(measured.cnr, [](double v) { return std::isfinite(v); }),
@@ -160,15 +145,5 @@ int main(int argc, char **argv)
                       << ": " << measured.rangeM.size() << " gates, first bin " << collector->firstBin()
                       << ", range " << measured.rangeM.first() << ".." << measured.rangeM.last() << " m\n";
         }
-    };
-    bool adc0 = false;
-    for (int i = 1; i < argc; ++i) {
-        const auto arg = QString::fromLocal8Bit(argv[i]);
-        if (arg == "--adc0") {
-            adc0 = true;
-            continue;
-        }
-        if (adc0) replay.operator()<Cdl5TenKCollector>(arg);
-        else replay.operator()<Cdl5FiveKCollector>(arg);
     }
 }

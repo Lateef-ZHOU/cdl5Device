@@ -1,5 +1,10 @@
 # 验证记录
 
+## 2026-11-10：只保留 ADC0 三门宽规格并拍平模板（用户定）
+
+- 删除 FourK/FiveK/旧 TenK、分段门距 `gateRanges`、帧头统一门距标志与两个旧页面；`Cdl5Device`/`Cdl5Module`/`Cdl5Collector` 为单一具体类型。命令解码上限改为 6 s；DMA 侧几何检查改为对比单一规格常量，测试替身只准备 240×240、6 lane。collector 回放不再需要 `--adc0` 开关，参数直接是实采帧文件。
+- 验证：Windows Qt 6.11.2/MSVC，build-1109（UDP+Device，相邻源码覆盖）重新配置后 Release 零警告，CTest 3/3（udp、collector、page）。主程序原 build Release 零警告，laser_assembly 通过，all_qmllint 0 警告/0 错误/19 Info 与基线一致，8 秒冒烟与基线一致。DMA 与 pipeline 只在 Linux 构建，本轮未运行；未连接实物。
+
 ## 2026-11-09：零风速参考硬编码与 qmlcache 警告豁免（用户定）
 
 - 零风速参考频率改为 `Configuration.h` 的 `ZeroWindReferenceMHz = 80.0`，所有规格与通道共用；删除 `readReferenceMHz`、`ReferenceMHz` 与 QSettings/QCoreApplication 依赖，`radial` 直接收参考频率，越出本帧频带仍只出 CNR。三个页面未换算时的日志改为“零风速参考频率不在本帧频带内，风速缺测”。首 bin 15 时两种频点数的频带都覆盖 80 MHz，因此现行三种规格风速均参与换算。

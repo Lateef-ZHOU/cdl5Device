@@ -26,15 +26,14 @@ std::vector<QByteArray> chunks;
 std::atomic<int> logs{0};
 void check(bool condition, const char *message)
 { if (!condition) { std::cerr << "FAIL " << message << '\n'; std::abort(); } }
-void prepare(int gates)
+void prepare()
 {
     for (int i=0;i<1024;++i) regs[i]=0;
-    const auto config = gates == 500 ? Cdl5::FourK : gates == 450 ? Cdl5::FiveK : Cdl5::TenK;
-    regs[0x84/4]=(quint32(config.profile)<<28)|(quint32(config.lanes)<<24)|(quint32(gates)<<8)|config.columns;
+    regs[0x84/4]=(quint32(Cdl5::Profile)<<28)|(quint32(Cdl5::Lanes)<<24)|(quint32(Cdl5::Rows)<<8)|Cdl5::Columns;
     regs[0x0c/4]=7;
-    regs[0x1c/4]=250000000 / config.rateHz;
+    regs[0x1c/4]=250000000 / Cdl5::RateHz;
     regs[0x24/4]=0xff8;
-    source=QByteArray((gates*config.columns+1)*32,Qt::Uninitialized);
+    source=QByteArray((Cdl5::Rows*Cdl5::Columns+1)*32,Qt::Uninitialized);
     for(qsizetype i=0;i<source.size();++i) source[i]=char(i%251);
     regs[0x10/4]=static_cast<quint32>(source.size()/4);
     starts=0;resets=0;reads=0;waits=0;logs=0;chunks.clear();fault=Fault::None;

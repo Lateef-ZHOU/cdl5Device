@@ -21,18 +21,18 @@ ModulePage {
     component ChannelPlots: QtObject {
         id: adc
         required property int channel
-        required property Cdl5FourKDevice backend
+        required property Cdl5Device backend
         required property var spec
         readonly property list<Page> pages: [
             Page {
-                title: qsTr("ADC%1·功率谱").arg(adc.channel)
+                title: qsTr("%1·功率谱").arg(adc.spec.channelName)
                 contentItem: SurfaceView {
                     id: surface
                     specification: adc.spec
                 }
             },
             Page {
-                title: qsTr("ADC%1·径向风").arg(adc.channel)
+                title: qsTr("%1·径向风").arg(adc.spec.channelName)
                 contentItem: NonuniformWind2DView {
                     id: radial
                     objectName: "radialADC" + adc.channel
@@ -48,7 +48,7 @@ ModulePage {
                 }
             },
             Page {
-                title: qsTr("ADC%1·风廓线").arg(adc.channel)
+                title: qsTr("%1·风廓线").arg(adc.spec.channelName)
                 contentItem: NonuniformWindBarbItem {
                     id: barbs
                     objectName: "barbsADC" + adc.channel
@@ -73,7 +73,7 @@ ModulePage {
                 radial.updateWS(ranges, speeds);
                 radial.updateCNR(ranges, cnr);
                 if (!calibrated)
-                    root.logMessage(qsTr("ADC%1：CNR 已更新。零风速参考频率不在本帧频带内，风速缺测。").arg(channel));
+                    root.logMessage(qsTr("ADC0·%1：CNR 已更新。零风速参考频率不在本帧频带内，风速缺测。").arg(adc.spec.channelName));
             }
             function onProfileReady(channel, frame) {
                 if (channel === adc.channel)
@@ -84,17 +84,17 @@ ModulePage {
     readonly property ChannelPlots adc0: ChannelPlots {
         channel: 0
         backend: internals.device
-        spec: internals.chartParameters
+        spec: backend.chartParameters(channel)
     }
     readonly property ChannelPlots adc1: ChannelPlots {
         channel: 1
         backend: internals.device
-        spec: internals.chartParameters
+        spec: backend.chartParameters(channel)
     }
     readonly property ChannelPlots adc2: ChannelPlots {
         channel: 2
         backend: internals.device
-        spec: internals.chartParameters
+        spec: backend.chartParameters(channel)
     }
     mainPages: [...adc0.pages, ...adc1.pages, ...adc2.pages]
     readonly property Section connectionSection: ConnectionSection {
@@ -126,7 +126,7 @@ ModulePage {
         device: internals.device
         acquisition: root
     }
-    objectName: "Cdl5FourKModule"
+    objectName: "Cdl5Module"
     readonly property string name: internals.device.displayName
     readonly property string subtitle: internals.device.subtitle
     // 借用公共只读资源接口（即设备对象本身），不另存状态。
@@ -134,9 +134,8 @@ ModulePage {
 
     QtObject {
         id: internals
-        readonly property var chartParameters: device.chartParameters()
         readonly property var connectionParameters: device.connectionParameters
-        readonly property Cdl5FourKDevice device: root.Cdl5FourKDevice
+        readonly property Cdl5Device device: root.Cdl5Device
     }
     Connections {
         target: internals.device

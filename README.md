@@ -1,5 +1,7 @@
 # cdl5Device
 
+2026-11-10 用户定：课题组只使用 PL `0x26110401`（Profile 7、10 kHz、ADC0 的 6/15/30 m 三路均匀门距），删除 FourK/FiveK 与三路 ADC 的旧 TenK 规格，连同分段门距、帧头统一门距标志和两个旧页面。型号模板拍平为单一具体类：`Cdl5Device`（C++ 后端）、`Cdl5Module`（QML 页面）、`Cdl5Collector`；规格是 `Configuration.h` 里的一组常量。累积上限随之为 1–6 s（16 位计数 / 10 kHz），传输层命令解码同样拒绝超过 6 s 的请求；Linux DMA 端只接受该 Profile、lane 与尺寸。会话目录标识沿用 `Cdl510K`。下文带日期的旧条目只作追溯。
+
 2026-11-09 用户定（DAQ 第二步）：Collector 的 createPrototype（只读原型）改为 `create(const DAQParameters&)`，按请求参数造完整实例并备齐收集区；makeSelf 只供看门狗重试，复用 create。
 
 2026-11-09 用户定：删除处理线程、中间 Core 与型号处理 lambda；末端直接继承 `DAQDevice<HandleT, CollectorT>`，唯一 QObject 来自 Handle。Collector 继承族基的通道数组，型号只给通道规格并按协议整理功率谱，收齐末包调用 complete() 由族基在收包线程做标准处理；显示、落盘（每帧一个 JSON）与风廓线由族层完成。页面改接族信号 spectrumReady/radialReady/profileReady（按通道下标），family 改为 QtObject，删除 device.device 自引用。通道名 ADC0_6m/15m/30m（多门宽）或 ADCn；频率轴取帧头起始 bin，非多门宽规格的距离轴按帧头距离模式。删除 WindProcessing.h（门位/频率辅助并入 Collector.h）与 Rawspec 规格 JSON；帧头只保留 profile/firstBin/uniformRange，累积计数与触发周期不再保存。验证：独立构建零警告，CTest 3/3。
@@ -10,19 +12,15 @@ Windows 验证：通过主程序本地源码覆盖增量构建，五个网口官
 
 2026-11-03 上传接口：官邸仍拥有唯一具体 Core；Core 继承 `Device<HandleT, CollectorT>`，Device 直接继承 Handle 并重写 onData。Core 只提供 Qt 属性、锁信号与末端预析构；不增设上传回调、状态缓存或逐包信号转发。协议、Collector 与 UI 逻辑保持。
 
-CDL5 采集卡官邸的桌面版本使用 UDP，Linux 板端由 DMA Handle 接入 FPGA，BridgeCore 转发帧字节。4/5 kHz 规格各自输出 ADC0、ADC1、ADC2 的三路独立功率谱。
+CDL5 采集卡官邸的桌面版本使用 UDP，Linux 板端由 DMA Handle 接入 FPGA，BridgeCore 转发帧字节。
 
-4/5 kHz 页面按 ADC0、ADC1、ADC2 顺序平铺九张同级图窗，每通道依次为 `ADCn·功率谱`、`ADCn·径向风`、`ADCn·风廓线`，不再嵌套通道标签。径向风页继续包含风速和 CNR；图窗常驻和数据接线保持。设备副标题仅显示 `网口·UDP·4kHz/5kHz/10kHz` 中对应规格，不在标签重复尺寸和通道数。
+## 规格：10 kHz ADC0 三门宽
 
-2026-10-31：已实现 DMA 启动/等待/读取/取消、顺序 Collector、三路功率谱 QML 页面及独立落盘。后续风测量接入见下文。实测帧头及只读寄存器为 Profile 8、450×128，用户确认 Windows 按实际数据接收。已回放两帧真实抓包并核对三路数值；这不代替更新后主程序的现场操作验收。
+`Cdl5Module` / `Cdl5Device` 对应 PL `0x26110401`。输出槽 0/1/2 分别是同一个 ADC0 的 6/15/30 m 距离门，三路各 240 门 × 240 频点、6 lane。门起点为 0 m，三路末门起点分别是 1434/3585/7170 m，覆盖长度为 1440/3600/7200 m。帧头 Profile、lane 格式和尺寸必须同时匹配。
 
-## 10 kHz ADC0 三门宽版
+每路依次显示功率谱、径向风、风廓线，共九个子页。绘图标签只写门宽与图名，例如 `6m·功率谱`、`15m·径向风`、`30m·风廓线`。功率谱用距离门下标，径向风速和 CNR 用实际斜距（米）。四束反演按本路斜距乘平均实测高度角的正弦计算高度。零风速参考频率固定为 `Configuration.h` 的 `ZeroWindReferenceMHz`（80 MHz），三路共用，不读取外部配置文件。
 
-桌面 `Cdl5TenKModule` 对应配置的 PL `0x26110401`。输出槽 0/1/2 分别是同一个 ADC0 的 6/15/30 m 距离门，三路各 240 门 × 240 频点。门起点为 0 m，三路末门起点分别是 1434/3585/7170 m，覆盖长度为 1440/3600/7200 m。帧头的 Profile 7 与旧版相同，桌面由明确的规格选择距离网格，新版门距固定。
-
-每路依次显示功率谱、径向风、风廓线，共九个子页。绘图标签只写门宽与图名，例如 `6m·功率谱`、`15m·径向风`、`30m·风廓线`。功率谱用距离门下标，径向风速和 CNR 用实际斜距（米）。四束反演按本路斜距乘平均实测高度角的正弦计算高度。零风速参考频率固定为 `Configuration.h` 的 `ZeroWindReferenceMHz`（80 MHz），三路及 4/5 kHz 各 ADC 共用，不再读取外部配置文件。
-
-新原谱文件标签为 `ADC0_6m`、`ADC0_15m`、`ADC0_30m`。每帧同目录的 `<frame-time>.json` 描述对应原谱文件、行列、字节序和排列、门起点/门距、每门有效样本数、采样率、FFT 长度及帧头首 bin、触发周期、累积数。`configuredPlVersion` 是所选规格的配置值。原谱继续写无头小端 double。径向风使用 `Rangeadc0_6m` 等分通道字段，风廓线文件各自写出实际 `High`。描述文件记录帧规格和对应文件名，与原谱文件分别写入。
+通道名为 `ADC0_6m`、`ADC0_15m`、`ADC0_30m`；落盘由 TaskCore 的族统一 JSON 完成（每帧一个文件，按通道写功率谱、径向风与 CNR）。
 
 ## 模块与构建
 
@@ -57,35 +55,17 @@ Linux 桌面验证可以同时启用 CDL5_WITH_DEVICE。Windows 请求 DMA 时�
 
 ## 桌面官邸
 
-QML 导入 `Lidar.Cdl5`，按实际 FPGA 规格装配下表对应的官邸。页面独持精确 C++ 后端，向任务提供 DAQ 族引用，保留族级锁、Collector 原型/重试、消费线程及取消链；不提供 DMA 枚举或 DMA 桌面页面。
+QML 导入 `Lidar.Cdl5` 并装配 `Cdl5Module`。页面独持 `Cdl5Device` 后端，向任务提供 DAQ 族引用；不提供 DMA 枚举或 DMA 桌面页面。
 
-连接只选择本机网卡，其余型号参数在 C++：Windows 192.168.100.200:55200，板端 192.168.100.100:55200。三张原谱均用距离门/频点下标，不冒充物理距离或风速。Z 范围初始 0/0 自动全范围；按原谱显示，只有绘图器才钳制。
+连接只选择本机网卡，其余型号参数在 C++：Windows 192.168.100.200:55200，板端 192.168.100.100:55200。Z 范围初始 0/0 自动全范围；按原谱显示，只有绘图器才钳制。
 
-三个末端分别持有精确型号后端，Collector、图窗尺寸、累积上限由 `Configuration.h` 的同一编译期规格导出。没有全局“活动型号”别名或运行时规格状态；应用选择页面即选择该型号。帧头 Profile、lane 格式和尺寸必须同时匹配，不会把等字节长度的 P7/P8 误当成同一种帧。
-
-| QML 官邸 / C++ 后端 | Profile | 三路原谱尺寸 | lane | 累积输入 | 混合距离覆盖 |
-|---|---|---|---|---|---|
-| Cdl5FourKModule / Cdl5FourKDevice | 9 / 4 kHz | 500×128 | 5 | 1–16 s | 34.5 km |
-| Cdl5FiveKModule / Cdl5FiveKDevice | 8 / 5 kHz | 450×128 | 5 | 1–13 s | 27 km |
-| Cdl5TenKModule / Cdl5TenKDevice | 7 / 10 kHz | 240×240 | 6 | 1–6 s | 1.44 / 3.6 / 7.2 km |
-
-旧 P7 混合模式为前 200 门×15 m、后 40 门×60 m，旧 P7 和 P8 的统一 60 m 模式分别覆盖 14.4/27 km。4/5 kHz 图窗仍按各自规格和帧头确定距离网格。累积上限按 16 位计数器/标称触发频率计算，DMA 端另按活动周期验证实际计数，并确认配置回读相符；10 kHz 已完成一次 1 秒实采，多秒累积仍待硬件验收。
-
-完成一次采集，处理线程独立发出三路 spectrumReady。4/5 kHz 启用保存时通过现有 AcqSaver 写入：
-
-```
-Rawspec/<session>/ADC0_<frame-time>.bin
-Rawspec/<session>/ADC1_<frame-time>.bin
-Rawspec/<session>/ADC2_<frame-time>.bin
-```
-
-每份为无头、小端 IEEE-754 double，距离门为行、型号规定的 128 或 240 频点为列。沿用已有 detached 保存方式，不新增退出排空。原型为空数组；makeSelf 才 reserve 三路收集区，完成后只读共享给处理/绘图/保存。
+累积时间由 `paramsFor` 校验为 1–6 s（16 位计数器 / 标称 10 kHz），越界拒绝；DMA 端另按活动周期验证实际计数，并确认配置回读相符。10 kHz 已完成一次 1 秒实采，多秒累积仍待硬件验收。
 
 ## 字节协议与采集
 
 详见 [采集协议](docs/acquisition.md)。要点：
 
-- 下行统一 8 字节：小端 magic 0x354c4443，随后小端 uint32 累积秒数；传输格式接受 1..16 秒开始、0 取消；具体官邸进一步钳制到本型号上限，DMA 按活动周期拒绝超过 65535 次的请求。单次触发，默认 1 秒。
+- 下行统一 8 字节：小端 magic 0x354c4443，随后小端 uint32 累积秒数；传输格式接受 1..6 秒开始、0 取消；DMA 按活动周期拒绝超过 65535 次的请求。单次触发，默认 1 秒。
 - DMA 读取整帧所需的传输长度来自 REG_FRAME_WORDS，累积计数由当前活动触发周期计算；不改变触发频率、光源、通道映射或距离模式。
 - 一帧一次 START，先准备 DMA 再触发 FPGA。WAIT_KEEP 短等待，完成后 rewind/read，每次交付最多 1024 字节自有 QByteArray，尾包交实际剩余字节。
 - 第一包含 32 字节整帧头；随后每条 32 字节，前三个小端 FP32 分别转成 double，无符号整数仅用来读取位型。元信息不参与重排或去重。
@@ -107,12 +87,9 @@ Rawspec/<session>/ADC2_<frame-time>.bin
 
 连接采用 HandleCore 的 `connectionChanged(ResourcePhase)`；主动关闭前在所属线程同步发 `AboutToRelease`，完成事件用于回读现状。页面借出已有 `deviceState` 机制对象，不再保存 isOpen/isLocked/holder 的 QML 转交属性；标签通过连接/锁完成阶段回读，不恢复通用 statusChanged。固定依赖已同步；本轮提交尚未推送，验证使用显式本地源码覆盖。
 
-## 4/5 kHz 与旧 10 kHz 逻辑的距离口径
+## 风测量
 
-三路分别提供功率谱、径向风速/CNR、风廓线。距离以交付上位机 frame_decoder.py 的 gate_distance_m 为准，以每门起点为坐标。P8 混合模式前 200 门从 0 m 起每 15 m，接下来的 150 门从 3000 m 起每 60 m，最后 100 门从 12000 m 起每 150 m。帧头 word7 的 range_mode 置位时按 60 m 等间隔处理。P9 混合模式最后有 150 门。P7 只包含前 200 门×15 m 和后 40 门×60 m，统一模式为 240 门×60 m。
-
-工作线程逐通道拟合谱峰。CNR 不依赖零风速频率。风速换算使用帧头 word4 的起始 bin、500 MSPS、512 点 FFT 和 1550 nm 波长。零风速参考频率为型号常量 80 MHz（`Configuration.h`）。参考频率超出本帧频带时，该通道仅显示 CNR，风速缺测。每路独立使用四束实测朝向，在任务同步点求 ENU，按逐门斜距乘平均仰角的正弦生成高度。无朝向、未凑齐四束或几何退化时不产生风廓线。勾选保存后使用 AcqSaver 的非均匀接口保存已标定通道及真实 Range/High。
-
+三路分别提供功率谱、径向风速/CNR、风廓线，距离以每门起点为坐标。收齐末包后在收包线程逐通道拟合谱峰。CNR 不依赖零风速频率。风速换算使用帧头 word4 的起始 bin、500 MSPS、512 点 FFT 和 1550 nm 波长。参考频率超出本帧频带时，该通道仅显示 CNR，风速缺测。每路独立使用四束实测朝向，在任务同步点求 ENU 并生成高度；无朝向、未凑齐四束或几何退化时不产生风廓线。
 
 2026-11-03 验证：Windows 主程序 Release/页面装配通过；Linux Qt Core 6.8.3 UDP、DMA 连接与采集测试 3/3 通过。接口联调使用相邻源码覆盖，新依赖固定为本地提交，尚未推送；未连接实物设备或更新板卡。
 

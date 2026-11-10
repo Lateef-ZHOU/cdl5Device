@@ -12,7 +12,6 @@ inline constexpr qsizetype RecordBytes = 32;
 inline constexpr qsizetype ChunkBytes = 1024;
 inline constexpr quint32 FrameMagic = 0x324c4443;
 inline constexpr quint32 CommandMagic = 0x354c4443; // CDL5, little endian
-inline constexpr int MaxAccumSeconds = FourK.maxAccumSeconds(); // Wire limit; active FPGA period is checked before capture.
 static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559);
 
 inline quint32 word(const char *p) { return qFromLittleEndian<quint32>(p); }

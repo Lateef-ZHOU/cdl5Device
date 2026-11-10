@@ -1,5 +1,7 @@
 # cdl5Device 维护入口
 
+2026-11-10 用户定：只保留 PL 0x26110401（Profile 7、10 kHz、ADC0 的 6/15/30 m 均匀三路），删除 FourK/FiveK 与三路 ADC 旧 TenK 规格；拍平型号模板为 Cdl5Device / Cdl5Module / Cdl5Collector，规格为 Configuration.h 常量，累积 1–6 s。下方提到多规格、4/5 kHz 或 Cdl5TenK* 的条目均为历史。见 README、VALIDATION。
+
 2026-11-09 用户定：DAQ 族去处理线程与通道归一，见 README 同日条目；落盘改为族统一 JSON，旧三份原谱 .bin 与规格 JSON 不再写出。
 
 2026-11-09 用户定：零风速参考频率为型号常量 80 MHz（Configuration.h 的 ZeroWindReferenceMHz），4/5 kHz 与 10 kHz 所有通道共用；删除 cdl5-wind.ini 及其读取、QSettings 依赖。参考落在本帧频带内即换算风速，否则只出 CNR。qmlcache 生成代码按其他官邸的方式局部豁免 C4702。见 VALIDATION。

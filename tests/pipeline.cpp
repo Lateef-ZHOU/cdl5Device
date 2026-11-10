@@ -20,9 +20,11 @@ template<class F> void until(F ready)
     }
     check(ready(),"production pipeline timed out");
 }
-template<class DeviceT> void verify(QCoreApplication &app)
+int main(int argc, char **argv)
 {
-    using C = typename DeviceT::CollectorType;
+    QCoreApplication app(argc, argv);
+    using DeviceT = Cdl5Device;
+    using C = Cdl5Collector;
     QTemporaryDir output;check(output.isValid(),"temporary output directory");
     FakePcap::reset();
     bool ok=false;
@@ -47,9 +49,9 @@ template<class DeviceT> void verify(QCoreApplication &app)
     const auto sent=FakePcap::sent();
     check(!sent.empty()&&UDPDatagram(sent.front().bytes).bodyView()==Cdl5::command(1),"collector command through Pcap");
     QByteArray frame((points+1)*32,0);
-    qToLittleEndian(Cdl5::FrameMagic,frame.data());qToLittleEndian(quint32(C::Specification.frameFormat()),frame.data()+4);
-    qToLittleEndian(quint32((C::Rows<<16)|C::Columns),frame.data()+8);
-    qToLittleEndian(quint32((C::Specification.profile << 12) | 15),frame.data()+16);
+    qToLittleEndian(Cdl5::FrameMagic,frame.data());qToLittleEndian(Cdl5::FrameFormat,frame.data()+4);
+    qToLittleEndian(quint32((Cdl5::Rows<<16)|Cdl5::Columns),frame.data()+8);
+    qToLittleEndian(quint32((Cdl5::Profile << 12) | 15),frame.data()+16);
     for(qsizetype i=0;i<points;++i) for(int c=0;c<3;++c)
         qToLittleEndian(std::bit_cast<quint32>(float(c)+1.25f),frame.data()+(i+1)*32+c*4);
     const auto session=FakePcap::last();
@@ -72,20 +74,12 @@ template<class DeviceT> void verify(QCoreApplication &app)
     check(channels.size()==3&&saved.value("frame").toObject().value("session").toString()=="probe","one frame file per completed frame");
     for(int channel=0;channel<3;++channel) {
         const auto object=channels[channel].toObject();
-        check(object.value("name").toString()==Cdl5::channelTag(C::Specification, channel),"channel names in specification order");
+        check(object.value("name").toString()==Cdl5::channelTag(channel),"channel names in specification order");
         const auto rows=object.value("spectrum").toArray();
-        check(rows.size()==C::Rows&&rows[0].toArray().size()==C::Columns,"spectrum rows by range gate");
+        check(rows.size()==Cdl5::Rows&&rows[0].toArray().size()==Cdl5::Columns,"spectrum rows by range gate");
         for(const auto &row:rows) for(const auto &value:row.toArray())
             check(value.toDouble()==channel+1.25,"spectrum values saved");
     }
     backend.close();
     std::cout<<"PASS UDP -> Device/Collector -> consume thread -> three signals and three saved spectra\n";
-}
-
-int main(int argc, char **argv)
-{
-    QCoreApplication app(argc, argv);
-    verify<Cdl5FourKDevice>(app);
-    verify<Cdl5FiveKDevice>(app);
-    verify<Cdl5TenKDevice>(app);
 }
