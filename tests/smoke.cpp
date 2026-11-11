@@ -19,7 +19,7 @@ int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
     using DeviceT = Cdl5Device;
-    static_assert(std::derived_from<DeviceT, DAQDeviceBase> && !std::is_abstract_v<DeviceT>);
+    static_assert(std::derived_from<DeviceT, DAQFamily> && !std::is_abstract_v<DeviceT>);
     QQmlEngine engine;
     bool warned = false;
     QObject::connect(&engine, &QQmlEngine::warnings, &engine, [&](const auto &) { warned = true; });
@@ -42,7 +42,7 @@ int main(int argc, char **argv)
         }
         if (backends != 1 || backend->parent() != page.get()) return 5;
         // 设备与采集卡族是同一个对象：family 即后端本身，可交叉转换到纯 C++ 族基。
-        auto *card = dynamic_cast<DAQDeviceBase *>(backend);
+        auto *card = dynamic_cast<DAQFamily *>(backend);
         if (!card || page->property("family").value<QObject *>() != backend) return 7;
         auto *cdl5 = qobject_cast<DeviceT *>(backend);
         for (int channel = 0; channel < 3; ++channel) {
