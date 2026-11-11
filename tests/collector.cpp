@@ -117,16 +117,16 @@ int main(int argc, char **argv)
     }
     std::vector<double> peak(128);
     for (int i = 0; i < 128; ++i) peak[i] = 2 + 30 * std::exp(-0.5 * std::pow((i - 68) / 3.0, 2));
-    // 族标准处理：起始 bin 15 的频率轴，参考在带内换算风速，带外只出 CNR。
+    // 族标准处理：起始 bin 15 的频率轴，参考频率在不在频带内都照常换算风速（是否在带内属硬件配置）。
     const auto channelWith = [&](double zero) {
         return DAQChannel(QString(), LinearArray2D<double>(1, 128, 0, 6, 15 * Cdl5::BinMHz, Cdl5::BinMHz, peak), zero,
                           Cdl5::WavelengthM);
     };
-    const auto wind = channelWith(Cdl5::ZeroWindReferenceMHz), uncal = channelWith(1.0);
-    check(RadialWind::inBand(wind.spectrum, wind.zeroWindMHz) && !RadialWind::inBand(uncal.spectrum, uncal.zeroWindMHz) && std::abs(wind.radialWind.front() - (83 * 500.0 / 512 - 80) * 0.775) < 0.02
-          && std::isnan(uncal.radialWind.front()) && wind.cnr.front() == uncal.cnr.front()
+    const auto wind = channelWith(Cdl5::ZeroWindReferenceMHz), outside = channelWith(1.0);
+    check(std::abs(wind.radialWind.front() - (83 * 500.0 / 512 - 80) * 0.775) < 0.02
+          && std::abs(outside.radialWind.front() - (83 * 500.0 / 512 - 1) * 0.775) < 0.02 && wind.cnr.front() == outside.cnr.front()
           && std::abs(wind.cnr.front() - 10 * std::log10(std::sqrt(2 * std::numbers::pi) * 90 / 256)) < 0.02,
-          "known peak, real bin offset, out-of-band reference still produces identical CNR");
+          "known peak, real bin offset, out-of-band reference still converts wind");
     std::cout << "PASS ADC0 6/15/30 m geometry, FP32, retry, chunks and coalesced batches\n";
     // 参数为实采帧文件路径：逐个回放并检查三路都能出 CNR。
     for (int i = 1; i < argc; ++i) {

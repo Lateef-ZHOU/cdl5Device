@@ -67,13 +67,11 @@ ModulePage {
                 if (channel === adc.channel)
                     surface.updateSpectrum(values);
             }
-            function onRadialReady(channel, speeds, cnr, calibrated) {
+            function onRadialReady(channel, speeds, cnr) {
                 if (channel !== adc.channel)
                     return;
                 radial.updateWS(speeds);
                 radial.updateCNR(cnr);
-                if (!calibrated)
-                    root.logMessage(qsTr("ADC0·%1：CNR 已更新。零风速参考频率不在本帧频带内，风速缺测。").arg(adc.spec.channelName));
             }
             function onProfileReady(channel, frame) {
                 if (channel === adc.channel)
