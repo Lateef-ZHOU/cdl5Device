@@ -56,6 +56,8 @@ public:
         }
         return DAQParameters(*this, accumSec, std::move(pose), std::move(saveRoot), std::move(sessionDir), sync);
     }
+    // 停采命令（累积 0 秒）与当前 run 无关：断开或停止时由 Device 无条件发出。
+    QList<QByteArray> stopCommands() const override { return {Cdl5::command(0)}; }
     Q_INVOKABLE QVariantMap chartParameters(int channel = 0) const
     {
         if (channel < 0 || channel >= Cdl5::Channels) return {};
