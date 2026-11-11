@@ -54,7 +54,7 @@ public:
                                   .arg(accumSec).arg(1).arg(Cdl5::MaxAccumSeconds));
             return std::nullopt;
         }
-        return DAQParameters{accumSec, std::move(pose), std::move(saveRoot), std::move(sessionDir), sync};
+        return DAQParameters(*this, accumSec, std::move(pose), std::move(saveRoot), std::move(sessionDir), sync);
     }
     Q_INVOKABLE QVariantMap chartParameters(int channel = 0) const
     {

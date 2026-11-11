@@ -9,10 +9,13 @@
 #include <type_traits>
 void check(bool value, const char *reason)
 { if (!value) { std::cerr << reason << '\n'; std::exit(1); } }
+// 收集器测试不经设备：自行派生通行证造参数（通行证只防误用，不防刻意派生）。
+struct TestKey : DAQParamsKey { TestKey() {} };
+DAQParameters testParameters(const int accumSec) { return DAQParameters(TestKey(), accumSec, std::nullopt, std::nullopt, {}, false); }
 void verify()
 {
     using C = Cdl5Collector;
-    const auto prototype = C::create({2, {}});
+    const auto prototype = std::make_shared<C>(testParameters(2));
     check(!prototype->settled(), "no channels before a full frame");
     const auto result = prototype->makeSelf();
     const auto retry = result->makeSelf();
@@ -89,7 +92,7 @@ void verify()
 }
 int main(int argc, char **argv)
 {
-    static_assert(std::is_same_v<decltype(Cdl5Collector::create({1})), std::shared_ptr<Cdl5Collector>>);
+    static_assert(std::is_constructible_v<Cdl5Collector, const DAQParameters &>);
     const auto unaligned = QByteArray::fromHex("780000a03f");
     check(Cdl5::power(unaligned.constData() + 1) == 1.25, "unaligned little-endian float bit interpretation");
     check(Cdl5::command(2).toHex() == "43444c3502000000", "command wire bytes");
@@ -129,7 +132,7 @@ int main(int argc, char **argv)
     for (int i = 1; i < argc; ++i) {
         QFile file(QString::fromLocal8Bit(argv[i]));
         check(file.open(QIODevice::ReadOnly), "open captured frame");
-        const auto collector = Cdl5Collector::create({1});
+        const auto collector = std::make_shared<Cdl5Collector>(testParameters(1));
         while (!file.atEnd()) collector->feed(file.read(7168), {});
         check(collector->settled() && collector->channels().front().spectrum.columnStart == 15 * Cdl5::BinMHz,
               "complete captured spectrum and ADC0 header metadata");

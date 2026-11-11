@@ -44,7 +44,7 @@ int main(int argc, char **argv)
         ++signals;
     });
     bool completed=false;
-    DAQParameters context{1};context.saveRoot=QDir(output.path());context.sessionDir="probe";
+    const auto context=*backend.paramsFor(1,std::nullopt,QDir(output.path()),QStringLiteral("probe"),false);
     check(backend.begin(context,[&](std::shared_ptr<const DAQCollector> frame) { completed=bool(frame); },{}),"begin typed collection");
     const auto sent=FakePcap::sent();
     check(!sent.empty()&&UDPDatagram(sent.front().bytes).bodyView()==Cdl5::command(1),"collector command through Pcap");

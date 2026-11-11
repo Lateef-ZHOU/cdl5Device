@@ -88,10 +88,9 @@ int main(int argc, char **argv)
         const auto spec = cdl5->chartParameters();
         if (spec["rows"].toInt() != Cdl5::Rows || spec["columns"].toInt() != Cdl5::Columns
             || cdl5->acquisitionParameters()["accumMax"].toInt() != Cdl5::MaxAccumSeconds) return 11;
-        // 型号范围由 paramsFor 判定：越界返回空，begin 复核同一判据。
-        if (card->paramsFor(Cdl5::MaxAccumSeconds + 1, {}, {}, {}, false) || !card->paramsFor(1, {}, {}, {}, false)
-            || card->begin(DAQParameters{Cdl5::MaxAccumSeconds + 1}, [](auto) {}, {})) return 12;
-        if (card->begin(DAQParameters{1}, [](auto) {}, {})) return 9; // Offline admission must reject, without starting hardware.
+        // 型号范围由 paramsFor 判定：越界造不出参数，也就到不了 begin。
+        if (card->paramsFor(Cdl5::MaxAccumSeconds + 1, {}, {}, {}, false) || !card->paramsFor(1, {}, {}, {}, false)) return 12;
+        if (card->begin(*card->paramsFor(1, {}, {}, {}, false), [](auto) {}, {})) return 9; // Offline admission must reject, without starting hardware.
         card->stop({});
         const QPointer<QObject> lifetime(backend);
         QTimer::singleShot(2500, &app, &QCoreApplication::quit);

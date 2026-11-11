@@ -32,19 +32,15 @@ class Cdl5Collector final : public DAQCollector
 public:
     static constexpr qsizetype Points = Cdl5::Rows * Cdl5::Columns;
     static constexpr qsizetype FrameBytes = (Points + 1) * Cdl5::RecordBytes;
-    // 族模板层按请求参数造完整实例；makeSelf 供看门狗重试另造新斗。
-    static std::shared_ptr<Cdl5Collector> create(const DAQParameters &parameters)
-    {
-        return std::shared_ptr<Cdl5Collector>(new Cdl5Collector(parameters));
-    }
-    std::shared_ptr<Cdl5Collector> makeSelf() const { return create(parameters()); }
+    // 族模板层按已校验的请求参数直接构造完整实例；makeSelf 供看门狗重试另造新斗。
+    explicit Cdl5Collector(const DAQParameters &parameters)
+        : DAQCollector(parameters, Cdl5::WavelengthM) {}
+    std::shared_ptr<Cdl5Collector> makeSelf() const { return std::make_shared<Cdl5Collector>(parameters()); }
     int timeoutMs() const override { return (parameters().accumSec + 5) * 1000; }
     QVector<QByteArray> buildStart() const override { return {Cdl5::command(static_cast<quint32>(parameters().accumSec))}; }
     QVector<QByteArray> buildStop() const override { return {Cdl5::command(0)}; }
 
 private:
-    explicit Cdl5Collector(DAQParameters parameters)
-        : DAQCollector(std::move(parameters), Cdl5::WavelengthM) {}
 
     std::optional<std::vector<DAQChannel>> assemble(QByteArrayView bytes, RxTime at) override
     {
