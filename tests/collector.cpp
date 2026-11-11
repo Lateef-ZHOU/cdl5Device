@@ -17,8 +17,8 @@ void verify()
     using C = Cdl5Collector;
     const auto prototype = std::make_shared<C>(testParameters(2));
     check(!prototype->settled(), "no channels before a full frame");
-    const auto result = prototype->makeSelf();
-    const auto retry = result->makeSelf();
+    const auto result = std::make_shared<C>(prototype->parameters);
+    const auto retry = std::make_shared<C>(result->parameters);
     const RxTime stamp = RxTime{} + std::chrono::seconds(123);
     QByteArray frame((C::Points + 1) * 32, char(-1));
     qToLittleEndian(Cdl5::FrameMagic, frame.data());
@@ -65,11 +65,11 @@ void verify()
     }
     check(!retry->settled() && !prototype->settled(), "independent receive areas");
     check(result->feed(QByteArray(1024, 0), stamp) && result->channels()[0].spectrum[0] == .25, "settled cannot be rewritten");
-    auto missing = prototype->makeSelf();
+    auto missing = std::make_shared<C>(prototype->parameters);
     for (qsizetype offset = 0; offset < frame.size() - 32; offset += 1024)
         missing->feed(frame.mid(offset, 1024), stamp);
     check(!missing->settled(), "lost tail remains incomplete for watchdog retry");
-    auto splitHeader = prototype->makeSelf();
+    auto splitHeader = std::make_shared<C>(prototype->parameters);
     check(!splitHeader->feed(frame.first(32), stamp), "header-only packet accepted");
     for (qsizetype offset = 32; offset < frame.size(); offset += 1024)
         splitHeader->feed(frame.mid(offset, 1024), stamp);
@@ -77,7 +77,7 @@ void verify()
           "header-only packet not confused with no header");
 
     // Npcap can receive seven original 1024-byte chunks as one 7168-byte batch.
-    auto coalesced = prototype->makeSelf();
+    auto coalesced = std::make_shared<C>(prototype->parameters);
     check(!coalesced->feed(frame.first(7169), stamp) && !coalesced->settled(),
           "coalesced but unaligned input rejected without consuming header");
     for (qsizetype offset = 0; offset < frame.size() - 32; offset += 7168) {
