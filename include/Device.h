@@ -65,7 +65,7 @@ public:
         return {{"rows", Cdl5::Rows}, {"columns", Cdl5::Columns}, {"channels", Cdl5::Channels},
                 {"channelName", QStringLiteral("%1m").arg(step)},
                 {"rangeStart", Cdl5::RangeStartM}, {"gateSpacing", step},
-                {"freqStart", Cdl5::FirstBinDefault * Cdl5::BinMHz}, {"freqStep", Cdl5::BinMHz},
+                {"freqStart", Cdl5::FirstBin * Cdl5::BinMHz}, {"freqStep", Cdl5::BinMHz},
                 {"powerMax", static_cast<double>(std::numeric_limits<float>::max())}};
     }
 Q_SIGNALS:

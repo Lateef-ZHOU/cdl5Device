@@ -9,6 +9,7 @@
 #include <QFile>
 #include <iostream>
 #include <cstdlib>
+static constexpr const char *channelNames[] = {Cdl5ChannelSpec<0>::name, Cdl5ChannelSpec<1>::name, Cdl5ChannelSpec<2>::name};
 
 void check(bool condition,const char *message)
 { if(!condition) { std::cerr<<message<<'\n';std::exit(1); } }
@@ -74,7 +75,7 @@ int main(int argc, char **argv)
     check(channels.size()==3&&saved.value("frame").toObject().value("session").toString()=="probe","one frame file per completed frame");
     for(int channel=0;channel<3;++channel) {
         const auto object=channels[channel].toObject();
-        check(object.value("name").toString()==Cdl5::channelTag(channel),"channel names in specification order");
+        check(object.value("name").toString()==QString::fromUtf8(channelNames[channel]),"channel names in specification order");
         const auto rows=object.value("spectrum").toArray();
         check(rows.size()==Cdl5::Rows&&rows[0].toArray().size()==Cdl5::Columns,"spectrum rows by range gate");
         for(const auto &row:rows) for(const auto &value:row.toArray())

@@ -11,22 +11,29 @@
 #include "Configuration.h"
 
 namespace Cdl5 {
-inline QString channelTag(int channel)
-{
-    return QStringLiteral("ADC0_%1m").arg(GateSpacingM[channel]);
-}
-
 // 500 MSPS、512 点 FFT，波长 1550 nm（λ/2 = 0.775 m/s/MHz）。频移向上取正，与交付上位机的径向风换算一致。
 inline constexpr int SampleRateHz = 500000000;
 inline constexpr int FftLength = 512;
 inline constexpr double BinMHz = SampleRateHz / 1000000.0 / FftLength;
 inline constexpr double WavelengthM = 1550e-9;
-// PL 0x26110401 帧头的起始 bin；只用于首帧前的初始频率轴，实际每帧以帧头为准。
-inline constexpr int FirstBinDefault = 15;
+// PL 0x26110401 的起始 bin：频率轴第 i 列 = (FirstBin + i)·BinMHz；帧头起始 bin 不符即拒收该帧。
+inline constexpr int FirstBin = 15;
 } // namespace Cdl5
 
+// 三路规格：门宽不同，其余共用（ADC0 同一零风速参考、波长与频率轴）。
+template <int Index>
+struct Cdl5ChannelSpec
+{
+    static_assert(Cdl5::GateSpacingM == std::array<int, Cdl5::Channels>{6, 15, 30}, "通道名须与门宽一致");
+    static constexpr const char *name = Index == 0 ? "ADC0_6m" : Index == 1 ? "ADC0_15m" : "ADC0_30m";
+    static constexpr double wavelengthM = Cdl5::WavelengthM, zeroWindMHz = Cdl5::ZeroWindReferenceMHz;
+    static constexpr int rows = Cdl5::Rows, columns = Cdl5::Columns;
+    static constexpr double rangeStartM = Cdl5::RangeStartM, rangeStepM = Cdl5::GateSpacingM[Index];
+    static constexpr double frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, frequencyStepMHz = Cdl5::BinMHz;
+};
+
 // 一帧 = 一条帧头记录 + Rows × Columns 条数据记录，每条 32 字节、含三路 FP32。收包只校验帧头与记录对齐并按序放置字节；
-// 凑齐后解析：频率起点由帧头起始 bin 确定（第 i 列 = (firstBin + i)·BinMHz），三路交错拆成各自的功率谱。
+// 凑齐后解析：三路交错拆成各自的功率谱，轴与系数取各路规格。
 class Cdl5Collector final : public DAQCollector
 {
 public:
@@ -34,14 +41,14 @@ public:
     static constexpr qsizetype FrameBytes = (Points + 1) * Cdl5::RecordBytes;
     // 族模板层按已校验的请求参数直接构造完整实例；看门狗重试以同一参数另造新斗。
     explicit Cdl5Collector(const DAQParameters &parameters)
-        : DAQCollector(parameters, Cdl5::WavelengthM) {}
+        : DAQCollector(parameters) {}
     int timeoutMs() const override { return (parameters.accumSec + 5) * 1000; }
     QVector<QByteArray> buildStart() const override { return {Cdl5::command(static_cast<quint32>(parameters.accumSec))}; }
     QVector<QByteArray> buildStop() const override { return {Cdl5::command(0)}; }
 
 private:
 
-    std::optional<std::vector<DAQChannel>> assemble(QByteArrayView bytes, RxTime at) override
+    std::optional<DAQChannels> assemble(QByteArrayView bytes, RxTime at) override
     {
         // DMA emits at most ChunkBytes; receive offload can coalesce several chunks.
         // Validate record alignment and remaining frame capacity, not the send chunk size.
@@ -52,7 +59,8 @@ private:
         if (first && (Cdl5::word(bytes.data()) != Cdl5::FrameMagic
                       || Cdl5::word(bytes.data() + 4) != Cdl5::FrameFormat
                       || Cdl5::word(bytes.data() + 8) != ((quint32(Cdl5::Rows) << 16) | Cdl5::Columns)
-                      || ((Cdl5::word(bytes.data() + 16) >> 12) & 15) != quint32(Cdl5::Profile)))
+                      || ((Cdl5::word(bytes.data() + 16) >> 12) & 15) != quint32(Cdl5::Profile)
+                      || (Cdl5::word(bytes.data() + 16) & 0x1ff) != quint32(Cdl5::FirstBin)))
             return std::nullopt;
         if (first)
             frameTime_ = at;
@@ -65,26 +73,19 @@ private:
         return channels;
     }
 
-    // 凑齐后解析：帧头起始 bin 定频率起点，三路交错拆成各自的功率谱。
-    std::vector<DAQChannel> decode() const
+    // 凑齐后解析：跳过帧头记录，三路交错拆成各自的数值，交各路规格构造通道。
+    DAQChannels decode() const
     {
         const char *const data = raw_.constData();
-        const double freqStartMHz = (Cdl5::word(data + 16) & 0x1ff) * Cdl5::BinMHz;
-        std::vector<LinearArray2D<double>> spectra;
-        for (int channel = 0; channel != Cdl5::Channels; ++channel) {
-            spectra.emplace_back(Cdl5::Rows, Cdl5::Columns, Cdl5::RangeStartM, Cdl5::GateSpacingM[channel],
-                                 freqStartMHz, Cdl5::BinMHz);
-            spectra.back().reserve(Points);
-        }
+        std::array<std::vector<double>, Cdl5::Channels> values;
+        for (auto &channel : values)
+            channel.reserve(Points);
         for (qsizetype offset = Cdl5::RecordBytes; offset < raw_.size(); offset += Cdl5::RecordBytes)
             for (int channel = 0; channel != Cdl5::Channels; ++channel)
-                spectra[channel].push_back(Cdl5::power(data + offset + channel * 4));
-        std::vector<DAQChannel> channels;
-        channels.reserve(Cdl5::Channels);
-        for (int channel = 0; channel != Cdl5::Channels; ++channel)
-            channels.emplace_back(Cdl5::channelTag(channel), std::move(spectra[channel]), Cdl5::ZeroWindReferenceMHz,
-                                  wavelengthM());
-        return channels;
+                values[channel].push_back(Cdl5::power(data + offset + channel * 4));
+        return {std::make_shared<TypedDAQChannel<Cdl5ChannelSpec<0>>>(std::move(values[0])),
+                std::make_shared<TypedDAQChannel<Cdl5ChannelSpec<1>>>(std::move(values[1])),
+                std::make_shared<TypedDAQChannel<Cdl5ChannelSpec<2>>>(std::move(values[2]))};
     }
 
     QByteArray raw_{FrameBytes, Qt::Uninitialized}; // 原样帧（含帧头记录）；解析后释放
