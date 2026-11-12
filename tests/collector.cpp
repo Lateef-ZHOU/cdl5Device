@@ -3,6 +3,8 @@
 #include <QFile>
 
 #include <cmath>
+#include <tuple>
+#include <array>
 #include <numbers>
 #include <cstdlib>
 #include <iostream>
@@ -22,6 +24,23 @@ struct PeakSpec
     static constexpr int rows = 1, columns = 128;
     static constexpr double rangeStartM = 0, rangeStepM = 6, frequencyStartMHz = 15 * Cdl5::BinMHz, frequencyStepMHz = Cdl5::BinMHz;
 };
+// 测试按下标查看三路：规格常量取自通道类型，三个产物取引用。
+struct ChannelView
+{
+    const char *name;
+    double zeroWindMHz;
+    const LinearArray2D<double> &spectrum;
+    const LinearArray<double> &radialWind;
+    const LinearArray<double> &cnr;
+};
+std::array<ChannelView, Cdl5::Channels> view(const Cdl5Collector &collector)
+{
+    return std::apply([](const auto &...channel) {
+        return std::array<ChannelView, Cdl5::Channels>{ChannelView{std::remove_cvref_t<decltype(channel)>::name,
+                                                                   std::remove_cvref_t<decltype(channel)>::zeroWindMHz,
+                                                                   channel.spectrum, channel.radialWind, channel.cnr}...};
+    }, collector.channels());
+}
 void verify()
 {
     using C = Cdl5Collector;
@@ -59,22 +78,22 @@ void verify()
     check(packets == 1801, "1024-byte chunks and 32-byte tail");
     for (qsizetype i = 0; i < C::Points; ++i)
         for (int c = 0; c < 3; ++c)
-            check(result->channels()[c]->spectrum[i] == double(i) + 0.25 * (c + 1), "FP32 LE decoded and widened in arrival order, meta ignored");
+            check(view(*result)[c].spectrum[i] == double(i) + 0.25 * (c + 1), "FP32 LE decoded and widened in arrival order, meta ignored");
     check(result->frameTime() == stamp && retry->frameTime() == RxTime{}, "first packet stamp and fresh retry");
-    check(result->channels().size() == Cdl5::Channels, "three ADC0 channels decoded");
+    check(std::tuple_size_v<C::Frame> == Cdl5::Channels, "three ADC0 channels decoded");
     // 通道规格：频率轴起点为固定起始 bin，距离轴按各路门宽固定。
     for (int c = 0; c < 3; ++c) {
-        const auto &channel = *result->channels()[c];
-        check(channel.name() == QString::fromUtf8(channelNames[c]) && channel.spectrum.rows == Cdl5::Rows && channel.spectrum.columns == Cdl5::Columns
+        const auto &channel = view(*result)[c];
+        check(QString::fromUtf8(channel.name) == QString::fromUtf8(channelNames[c]) && channel.spectrum.rows == Cdl5::Rows && channel.spectrum.columns == Cdl5::Columns
               && channel.spectrum.columnStart == 15 * Cdl5::BinMHz && channel.spectrum.columnStep == Cdl5::BinMHz
               && channel.spectrum.rowStart == 0 && channel.spectrum.rowStep == Cdl5::GateSpacingM[c]
-              && channel.zeroWindMHz() == Cdl5::ZeroWindReferenceMHz && channel.radialWind.start == 0
+              && channel.zeroWindMHz == Cdl5::ZeroWindReferenceMHz && channel.radialWind.start == 0
               && channel.radialWind.step == Cdl5::GateSpacingM[c] && channel.cnr.sameAxis(channel.radialWind),
               "channel specification from configuration and frame header");
         check(channel.cnr.size() == Cdl5::Rows, "standard processing ran on completion");
     }
     check(!retry->settled() && !prototype->settled(), "independent receive areas");
-    check(result->feed(QByteArray(1024, 0), stamp) && result->channels()[0]->spectrum[0] == .25, "settled cannot be rewritten");
+    check(result->feed(QByteArray(1024, 0), stamp) && view(*result)[0].spectrum[0] == .25, "settled cannot be rewritten");
     auto missing = std::make_shared<C>(prototype->parameters);
     for (qsizetype offset = 0; offset < frame.size() - 32; offset += 1024)
         missing->feed(frame.mid(offset, 1024), stamp);
@@ -90,7 +109,7 @@ void verify()
     check(!splitHeader->feed(frame.first(32), stamp), "header-only packet accepted");
     for (qsizetype offset = 32; offset < frame.size(); offset += 1024)
         splitHeader->feed(frame.mid(offset, 1024), stamp);
-    check(splitHeader->settled() && splitHeader->channels()[0]->spectrum == result->channels()[0]->spectrum,
+    check(splitHeader->settled() && view(*splitHeader)[0].spectrum == view(*result)[0].spectrum,
           "header-only packet not confused with no header");
 
     // Npcap can receive seven original 1024-byte chunks as one 7168-byte batch.
@@ -103,7 +122,7 @@ void verify()
     }
     check(!coalesced->feed(QByteArray(64, 0), stamp), "oversized tail rejected without partial append");
     check(coalesced->feed(frame.last(32), stamp), "coalesced frame completes on actual tail");
-    check(std::ranges::equal(coalesced->channels(), result->channels(), [](const auto &l, const auto &r) { return l->spectrum == r->spectrum; })
+    check(std::ranges::equal(view(*coalesced), view(*result), [](const auto &l, const auto &r) { return l.spectrum == r.spectrum; })
           && coalesced->frameTime() == stamp,
           "coalescing preserves every ADC value and first arrival time");
 }
@@ -135,8 +154,8 @@ int main(int argc, char **argv)
     std::vector<double> peak(128);
     for (int i = 0; i < 128; ++i) peak[i] = 2 + 30 * std::exp(-0.5 * std::pow((i - 68) / 3.0, 2));
     // 族标准处理：起始 bin 15 的频率轴，参考频率在不在频带内都照常换算风速（是否在带内属硬件配置）。
-    const TypedDAQChannel<PeakSpec<Cdl5::ZeroWindReferenceMHz>> wind(peak);
-    const TypedDAQChannel<PeakSpec<1.0>> outside(peak);
+    const DAQChannel<PeakSpec<Cdl5::ZeroWindReferenceMHz>> wind(peak);
+    const DAQChannel<PeakSpec<1.0>> outside(peak);
     check(std::abs(wind.radialWind.front() - (83 * 500.0 / 512 - 80) * 0.775) < 0.02
           && std::abs(outside.radialWind.front() - (83 * 500.0 / 512 - 1) * 0.775) < 0.02 && wind.cnr.front() == outside.cnr.front()
           && std::abs(wind.cnr.front() - 10 * std::log10(std::sqrt(2 * std::numbers::pi) * 90 / 256)) < 0.02,
@@ -148,14 +167,14 @@ int main(int argc, char **argv)
         check(file.open(QIODevice::ReadOnly), "open captured frame");
         const auto collector = std::make_shared<Cdl5Collector>(testParameters(1));
         while (!file.atEnd()) collector->feed(file.read(7168), {});
-        check(collector->settled() && collector->channels().front()->spectrum.columnStart == 15 * Cdl5::BinMHz,
+        check(collector->settled() && view(*collector)[0].spectrum.columnStart == 15 * Cdl5::BinMHz,
               "complete captured spectrum and ADC0 header metadata");
         for (int channel = 0; channel < Cdl5::Channels; ++channel) {
-            const auto &measured = *collector->channels()[channel];
+            const auto &measured = view(*collector)[channel];
             check(measured.cnr.size() == Cdl5::Rows
                   && std::ranges::any_of(measured.cnr, [](double v) { return std::isfinite(v); }),
                   "real spectrum produces CNR on completion");
-            std::cout << "Replay " << measured.name().toStdString()
+            std::cout << "Replay " << measured.name
                       << ": " << Cdl5::Rows << " gates, first bin " << measured.spectrum.columnStart / Cdl5::BinMHz << ", range "
                       << measured.radialWind.positionAt(0) << ".." << measured.radialWind.positionAt(Cdl5::Rows - 1) << " m\n";
         }

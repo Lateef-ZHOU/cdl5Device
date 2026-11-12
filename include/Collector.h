@@ -34,21 +34,22 @@ struct Cdl5ChannelSpec
 
 // 一帧 = 一条帧头记录 + Rows × Columns 条数据记录，每条 32 字节、含三路 FP32。收包只校验帧头与记录对齐并按序放置字节；
 // 凑齐后解析：三路交错拆成各自的功率谱，轴与系数取各路规格。
-class Cdl5Collector final : public DAQCollector
+class Cdl5Collector final
+    : public TypedDAQCollector<DAQChannel<Cdl5ChannelSpec<0>>, DAQChannel<Cdl5ChannelSpec<1>>, DAQChannel<Cdl5ChannelSpec<2>>>
 {
 public:
     static constexpr qsizetype Points = Cdl5::Rows * Cdl5::Columns;
     static constexpr qsizetype FrameBytes = (Points + 1) * Cdl5::RecordBytes;
     // 族模板层按已校验的请求参数直接构造完整实例；看门狗重试以同一参数另造新斗。
     explicit Cdl5Collector(const DAQParameters &parameters)
-        : DAQCollector(parameters) {}
+        : TypedDAQCollector(parameters) {}
     int timeoutMs() const override { return (parameters.accumSec + 5) * 1000; }
     QVector<QByteArray> buildStart() const override { return {Cdl5::command(static_cast<quint32>(parameters.accumSec))}; }
     QVector<QByteArray> buildStop() const override { return {Cdl5::command(0)}; }
 
 private:
 
-    std::optional<DAQChannels> assemble(QByteArrayView bytes, RxTime at) override
+    std::optional<Frame> assemble(QByteArrayView bytes, RxTime at) override
     {
         // DMA emits at most ChunkBytes; receive offload can coalesce several chunks.
         // Validate record alignment and remaining frame capacity, not the send chunk size.
@@ -74,7 +75,7 @@ private:
     }
 
     // 凑齐后解析：跳过帧头记录，三路交错拆成各自的数值，交各路规格构造通道。
-    DAQChannels decode() const
+    Frame decode() const
     {
         const char *const data = raw_.constData();
         std::array<std::vector<double>, Cdl5::Channels> values;
@@ -83,9 +84,9 @@ private:
         for (qsizetype offset = Cdl5::RecordBytes; offset < raw_.size(); offset += Cdl5::RecordBytes)
             for (int channel = 0; channel != Cdl5::Channels; ++channel)
                 values[channel].push_back(Cdl5::power(data + offset + channel * 4));
-        return {std::make_shared<TypedDAQChannel<Cdl5ChannelSpec<0>>>(std::move(values[0])),
-                std::make_shared<TypedDAQChannel<Cdl5ChannelSpec<1>>>(std::move(values[1])),
-                std::make_shared<TypedDAQChannel<Cdl5ChannelSpec<2>>>(std::move(values[2]))};
+        return {DAQChannel<Cdl5ChannelSpec<0>>(std::move(values[0])),
+                DAQChannel<Cdl5ChannelSpec<1>>(std::move(values[1])),
+                DAQChannel<Cdl5ChannelSpec<2>>(std::move(values[2]))};
     }
 
     QByteArray raw_{FrameBytes, Qt::Uninitialized}; // 原样帧（含帧头记录）；解析后释放
