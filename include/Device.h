@@ -6,7 +6,7 @@
 #include <QDir>
 #include <QtQml/qqmlregistration.h>
 #include <QVariantMap>
-#include <DAQDevice.h>
+#include <DAQFamily/DAQDevice.h>
 #include <PcapForm.h>
 #include "Collector.h"
 

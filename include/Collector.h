@@ -6,7 +6,7 @@
 #include <vector>
 #include <QString>
 #include <QVector>
-#include <DAQCollector.h>
+#include <DAQFamily/DAQCollector.h>
 #include "Cdl5Protocol.h"
 #include "Configuration.h"
 
