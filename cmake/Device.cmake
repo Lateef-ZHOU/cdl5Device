@@ -1,7 +1,7 @@
 find_package(Qt6 6.11.2 REQUIRED COMPONENTS Quick Qml GuiPrivate ShaderTools)
 set(CMAKE_AUTOMOC ON)
-set(TASKCORE_WITH_QML ON)
-set(TASKCORE_WITH_PCAP_FORMS ON)
+set(FAMILYCORE_WITH_QML ON)
+set(FAMILYCORE_WITH_PCAP_FORMS ON)
 if(NOT TARGET Lidar::Algorithm)
     FetchContent_Declare(lidar_algorithm
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/Algorithm.git
@@ -12,10 +12,10 @@ if(NOT TARGET Lidar::TaskUI)
     FetchContent_Declare(lidar_chartcore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/ChartCore.git
         GIT_TAG 903d72c4448eb0999d9da9c9c6d49a8206ca8b48)
-    FetchContent_Declare(lidar_taskcore
+    FetchContent_Declare(lidar_familycore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/TaskCore.git
         GIT_TAG 8e0b9e1781960df0d25748ef4838f5b47e763d90)
-    FetchContent_MakeAvailable(lidar_taskcore)
+    FetchContent_MakeAvailable(lidar_familycore)
 endif()
 set(import_paths)
 foreach(module Lidar::UICore Lidar::ChartCore Lidar::TaskUI)

@@ -1,3 +1,7 @@
+## 2026-11-14：接入 FamilyCore（用户定）
+
+依赖声明与开关改用 FamilyCore / FAMILYCORE_WITH_*，协程头由 DeviceCore 提供。当前仅本地整理，GitHub 仍为 TaskCore，旧固定提交暂不更新；联调使用 `FETCHCONTENT_SOURCE_DIR_LIDAR_FAMILYCORE` 指向相邻 FamilyCore，并覆盖配套 DeviceCore/Algorithm 等源码。Windows 主程序或 simonly 的实际消费目标构建通过，业务与数据格式不变；未推送、未更新交付包。
+
 ## 2026-11-14：删除旧风场测试依赖
 
 Windows/MSVC Release 构建通过，CTest 3/3。
@@ -44,7 +48,7 @@ CDL5 采集卡官邸的桌面版本使用 UDP，Linux 板端由 DMA Handle 接�
 
 每路依次显示功率谱、径向风、风廓线，共九个子页。绘图标签只写门宽与图名，例如 `6m·功率谱`、`15m·径向风`、`30m·风廓线`。功率谱用距离门下标，径向风速和 CNR 用实际斜距（米）。四束反演按本路斜距乘平均实测高度角的正弦计算高度。零风速参考频率固定为 `Configuration.h` 的 `ZeroWindReferenceMHz`（80 MHz），三路共用，不读取外部配置文件。
 
-通道名为 `ADC0_6m`、`ADC0_15m`、`ADC0_30m`；落盘由 TaskCore 的族统一 JSON 完成（每帧一个文件，按通道写功率谱、径向风与 CNR）。
+通道名为 `ADC0_6m`、`ADC0_15m`、`ADC0_30m`；落盘由 FamilyCore 的族统一 JSON 完成（每帧一个文件，按通道写功率谱、径向风与 CNR）。
 
 ## 模块与构建
 
