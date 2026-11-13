@@ -38,7 +38,7 @@ std::array<ChannelView, Cdl5::Channels> view(const Cdl5Collector &collector)
     return std::apply([](const auto &...channel) {
         return std::array<ChannelView, Cdl5::Channels>{ChannelView{std::remove_cvref_t<decltype(channel)>::name,
                                                                    std::remove_cvref_t<decltype(channel)>::zeroWindMHz,
-                                                                   channel.spectrum, channel.radialWind, channel.cnr}...};
+                                                                   *channel.spectrum, *channel.radialWind, *channel.cnr}...};
     }, collector.channels());
 }
 void verify()
@@ -144,7 +144,7 @@ int main(int argc, char **argv)
     constexpr std::array steps{6, 15, 30};
     for (int channel = 0; channel < 3; ++channel) {
         std::array<WindProfile::Input, 4> grid = beams;
-        for (auto &beam : grid) beam.ws = LinearArray<double>(Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], radialSpeeds);
+        for (auto &beam : grid) beam.ws = std::make_shared<const LinearArray<double>>(Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], radialSpeeds);
         const auto profile = (channel == 0 ? shareWindProfile(WindProfile::Calc<Cdl5ChannelSpec<0>>(grid, RxTime{}))
             : channel == 1 ? shareWindProfile(WindProfile::Calc<Cdl5ChannelSpec<1>>(grid, RxTime{}))
                            : shareWindProfile(WindProfile::Calc<Cdl5ChannelSpec<2>>(grid, RxTime{})));
@@ -158,9 +158,9 @@ int main(int argc, char **argv)
     // 族标准处理：起始 bin 15 的频率轴，参考频率在不在频带内都照常换算风速（是否在带内属硬件配置）。
     const DAQChannel<PeakSpec<Cdl5::ZeroWindReferenceMHz>> wind(peak);
     const DAQChannel<PeakSpec<1.0>> outside(peak);
-    check(std::abs(wind.radialWind.front() - (83 * 500.0 / 512 - 80) * 0.775) < 0.02
-          && std::abs(outside.radialWind.front() - (83 * 500.0 / 512 - 1) * 0.775) < 0.02 && wind.cnr.front() == outside.cnr.front()
-          && std::abs(wind.cnr.front() - 10 * std::log10(std::sqrt(2 * std::numbers::pi) * 90 / 256)) < 0.02,
+    check(std::abs(wind.radialWind->front() - (83 * 500.0 / 512 - 80) * 0.775) < 0.02
+          && std::abs(outside.radialWind->front() - (83 * 500.0 / 512 - 1) * 0.775) < 0.02 && wind.cnr->front() == outside.cnr->front()
+          && std::abs(wind.cnr->front() - 10 * std::log10(std::sqrt(2 * std::numbers::pi) * 90 / 256)) < 0.02,
           "known peak, real bin offset, out-of-band reference still converts wind");
     std::cout << "PASS ADC0 6/15/30 m geometry, FP32, retry, chunks and coalesced batches\n";
     // 参数为实采帧文件路径：逐个回放并检查三路都能出 CNR。

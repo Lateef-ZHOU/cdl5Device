@@ -80,12 +80,10 @@ int main(int argc, char **argv)
             if (!page->findChild<QObject *>(QString("radialADC%1").arg(channel))
                 || !page->findChild<QObject *>(QString("barbsADC%1").arg(channel))) return 10;
             // 族信号经页面接线交给图窗；类型不符时 QML 会报警告（warned）。
-            const LinearArray<double> gates(Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], std::vector<double>(240, 1));
-            Q_EMIT cdl5->spectrumReady(channel, LinearArray2D<double>(240, 240, Cdl5::RangeStartM, Cdl5::GateSpacingM[channel],
-                16 * Cdl5::BinMHz, Cdl5::BinMHz, std::vector<double>(240 * 240, 1)));
+            const auto gates = std::make_shared<const LinearArray<double>>(Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], std::vector<double>(240, 1));
+            Q_EMIT cdl5->spectrumReady(channel, std::make_shared<const LinearArray2D<double>>(240, 240, Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], 16 * Cdl5::BinMHz, Cdl5::BinMHz, std::vector<double>(240 * 240, 1)));
             Q_EMIT cdl5->radialReady(channel, gates, gates);
-            Q_EMIT cdl5->profileReady(channel, shareWindProfile(std::make_shared<const WindField::Frame>(WindField::Frame{
-                std::chrono::system_clock::now(), LinearArray<std::optional<LinAlg::Vec3>>(0.0, 3.0 * (channel + 1), {LinAlg::Vec3{1,2,0},LinAlg::Vec3{3,4,0},LinAlg::Vec3{5,6,0}})})));
+            Q_EMIT cdl5->profileReady(channel, shareWindProfile(std::make_shared<const WindField::Frame>(std::chrono::system_clock::now(), 0.0, 3.0 * (channel + 1), std::vector<std::optional<LinAlg::Vec3>>{LinAlg::Vec3{1,2,0},LinAlg::Vec3{3,4,0},LinAlg::Vec3{5,6,0}})));
         }
         const auto spec = cdl5->chartParameters();
         if (spec["rows"].toInt() != Cdl5::Rows || spec["columns"].toInt() != Cdl5::Columns
