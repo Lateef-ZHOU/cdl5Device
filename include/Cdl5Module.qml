@@ -22,6 +22,7 @@ ModulePage {
         id: adc
         required property int channel
         required property Cdl5Device backend
+        required property WindBarbChart profilePlot
         required property var spec
         readonly property list<Page> pages: [
             Page {
@@ -49,16 +50,7 @@ ModulePage {
             },
             Page {
                 title: qsTr("%1·风廓线").arg(adc.spec.channelName)
-                contentItem: WindBarbItem {
-                    id: barbs
-                    objectName: "barbsADC" + adc.channel
-                    configuration: ({
-                            heightBins: 1,
-                            windowSeconds: 120,
-                            columnSeconds: 1,
-                            maxHeight: adc.spec.rangeStart + adc.spec.rows * adc.spec.gateSpacing
-                        })
-                }
+                contentItem: adc.profilePlot
             }
         ]
         readonly property Connections updates: Connections {
@@ -73,24 +65,51 @@ ModulePage {
                 radial.updateWS(speeds);
                 radial.updateCNR(cnr);
             }
-            function onProfileReady(channel, frame) {
-                if (channel === adc.channel)
-                    barbs.appendColumn(frame);
-            }
+
         }
     }
     readonly property ChannelPlots adc0: ChannelPlots {
         channel: 0
+        profilePlot: Cdl5SixWindBarb {
+            id: barbs0
+            objectName: "barbsADC0"
+            configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1,
+                maxHeight: adc0.spec.rangeStart + adc0.spec.rows * adc0.spec.gateSpacing})
+            Connections {
+                target: internals.device
+                function onProfilesReady(profiles) { barbs0.appendProfiles(profiles) }
+            }
+        }
         backend: internals.device
         spec: backend.chartParameters(channel)
     }
     readonly property ChannelPlots adc1: ChannelPlots {
         channel: 1
+        profilePlot: Cdl5FifteenWindBarb {
+            id: barbs1
+            objectName: "barbsADC1"
+            configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1,
+                maxHeight: adc1.spec.rangeStart + adc1.spec.rows * adc1.spec.gateSpacing})
+            Connections {
+                target: internals.device
+                function onProfilesReady(profiles) { barbs1.appendProfiles(profiles) }
+            }
+        }
         backend: internals.device
         spec: backend.chartParameters(channel)
     }
     readonly property ChannelPlots adc2: ChannelPlots {
         channel: 2
+        profilePlot: Cdl5ThirtyWindBarb {
+            id: barbs2
+            objectName: "barbsADC2"
+            configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1,
+                maxHeight: adc2.spec.rangeStart + adc2.spec.rows * adc2.spec.gateSpacing})
+            Connections {
+                target: internals.device
+                function onProfilesReady(profiles) { barbs2.appendProfiles(profiles) }
+            }
+        }
         backend: internals.device
         spec: backend.chartParameters(channel)
     }

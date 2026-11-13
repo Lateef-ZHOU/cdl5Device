@@ -1,3 +1,7 @@
+## 2026-11-14 风廓线原帧直接传输（用户定）
+
+三路风廓线经 Cdl5Profiles 直接传递具体 VerticalWindProfileUnit 的只读份额。6 m、15 m、30 m 风羽图只取对应项，保留已有通道规格、四束反演、坐标和保存格式；旧 profileReady 接线删除。Windows/MSVC Release 构建、公开头编译及 CTest 3/3 通过。 本轮不推送。
+
 # cdl5Device
 
 2026-11-13 用户定：通道规格的距离门数量与频点数量分别命名为 `rangeGateCount`、`frequencyBinCount`，取代 `rows`、`columns`。同步规格使用方，数值与数据布局不变；通用二维传输对象和 SpectrumLike 的行列接口保持。

@@ -83,7 +83,12 @@ int main(int argc, char **argv)
             const auto gates = std::make_shared<const LinearArray<double>>(Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], std::vector<double>(240, 1));
             Q_EMIT cdl5->spectrumReady(channel, std::make_shared<const LinearArray2D<double>>(240, 240, Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], 16 * Cdl5::BinMHz, Cdl5::BinMHz, std::vector<double>(240 * 240, 1)));
             Q_EMIT cdl5->radialReady(channel, gates, gates);
-            Q_EMIT cdl5->profileReady(channel, shareWindProfile(std::make_shared<const WindField::Frame>(std::chrono::system_clock::now(), 0.0, 3.0 * (channel + 1), std::vector<std::optional<LinAlg::Vec3>>{LinAlg::Vec3{1,2,0},LinAlg::Vec3{3,4,0},LinAlg::Vec3{5,6,0}})));
+            Cdl5Profiles profiles;
+            std::apply([&](auto &...p) {
+                ((p = std::make_shared<const std::remove_const_t<typename std::decay_t<decltype(p)>::element_type>>(
+                    std::chrono::system_clock::now(), 30.0)), ...);
+            }, profiles);
+            Q_EMIT cdl5->profilesReady(profiles);
         }
         const auto spec = cdl5->chartParameters();
         if (spec["rows"].toInt() != Cdl5::Rows || spec["columns"].toInt() != Cdl5::Columns

@@ -1,4 +1,5 @@
 #pragma once
+#include "WindBarbItem.h"
 #include <limits>
 #include <optional>
 #include <QDateTime>
@@ -8,6 +9,15 @@
 #include <DAQDevice.h>
 #include <PcapForm.h>
 #include "Collector.h"
+
+// Qt 只登记具体结果元组；各项仍指向算法生成的原帧。
+using Cdl5Profiles = DAQDevice<PcapHandle, Cdl5Collector>::Profiles;
+struct Cdl5ProfilesQml
+{
+    Q_GADGET
+    QML_FOREIGN(Cdl5Profiles)
+    QML_ANONYMOUS
+};
 
 // 末端官邸同时是 Handle、Device 与采集卡族，唯一 QObject 来自 PcapHandle；
 // 处理、显示、落盘与风廓线由族层按通道规格完成，本层只给型号参数与连接入口。
@@ -72,7 +82,7 @@ Q_SIGNALS:
     void lockChanged(HandleCore::ResourcePhase phase) override;
     void spectrumReady(int channel, const LinearSpectrumPtr &spectrum) override;
     void radialReady(int channel, const LinearSeriesPtr &speeds, const LinearSeriesPtr &cnr) override;
-    void profileReady(int channel, VerticalWindProfilePtr profile) override;
+    void profilesReady(const Cdl5Profiles &profiles) override;
 public Q_SLOTS:
     bool open(int interfaceIndex)
     {
@@ -95,4 +105,52 @@ private:
         static_assert(FinalDevice<Cdl5Device, decltype(&Cdl5Device::PreDestruction)>);
         Base::PreDestruction();
     }
+};
+
+// 末端仅提供 Qt 入口；历史和绘制由 ChartCore 的模板实现。
+class Cdl5SixWindBarb
+#ifdef Q_MOC_RUN
+    : public WindBarbChart
+#else
+    : public WindBarbItem<typename std::tuple_element_t<0, Cdl5Profiles>::element_type>
+#endif
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5SixWindBarb(QQuickItem *parent = nullptr) : WindBarbItem(parent) {}
+    Q_INVOKABLE void appendProfiles(const Cdl5Profiles &profiles)
+    { appendColumn(std::get<0>(profiles)); }
+};
+
+// 末端仅提供 Qt 入口；历史和绘制由 ChartCore 的模板实现。
+class Cdl5FifteenWindBarb
+#ifdef Q_MOC_RUN
+    : public WindBarbChart
+#else
+    : public WindBarbItem<typename std::tuple_element_t<1, Cdl5Profiles>::element_type>
+#endif
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5FifteenWindBarb(QQuickItem *parent = nullptr) : WindBarbItem(parent) {}
+    Q_INVOKABLE void appendProfiles(const Cdl5Profiles &profiles)
+    { appendColumn(std::get<1>(profiles)); }
+};
+
+// 末端仅提供 Qt 入口；历史和绘制由 ChartCore 的模板实现。
+class Cdl5ThirtyWindBarb
+#ifdef Q_MOC_RUN
+    : public WindBarbChart
+#else
+    : public WindBarbItem<typename std::tuple_element_t<2, Cdl5Profiles>::element_type>
+#endif
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5ThirtyWindBarb(QQuickItem *parent = nullptr) : WindBarbItem(parent) {}
+    Q_INVOKABLE void appendProfiles(const Cdl5Profiles &profiles)
+    { appendColumn(std::get<2>(profiles)); }
 };

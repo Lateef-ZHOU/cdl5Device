@@ -142,17 +142,18 @@ int main(int argc, char **argv)
         {WorldModel(180, 30, 0), {}}, {WorldModel(270, 30, 0), {}}
     }};
     constexpr std::array steps{6, 15, 30};
-    for (int channel = 0; channel < 3; ++channel) {
+    const auto verifyProfile = [&]<int channel>() {
         std::array<WindProfile::Input, 4> grid = beams;
         for (auto &beam : grid) beam.ws = std::make_shared<const LinearArray<double>>(Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], radialSpeeds);
-        const auto profile = (channel == 0 ? shareWindProfile(WindProfile::Calc<Cdl5ChannelSpec<0>>(grid, RxTime{}))
-            : channel == 1 ? shareWindProfile(WindProfile::Calc<Cdl5ChannelSpec<1>>(grid, RxTime{}))
-                           : shareWindProfile(WindProfile::Calc<Cdl5ChannelSpec<2>>(grid, RxTime{})));
-        check(profile && profile->winds.size() == 240, "separate wind profile for each grid");
+        const auto profile = WindProfile::Calc<Cdl5ChannelSpec<channel>>(grid, RxTime{});
+        check(profile && profile->size() == 240, "separate wind profile for each grid");
         for (int gate = 0; gate < 240; ++gate)
-            check(std::abs(profile->winds.positionAt(gate) - gate * steps[channel] / 2.0) < 1e-9,
+            check(std::abs((profile->heightStartM() + gate * profile->heightStepM()) - gate * steps[channel] / 2.0) < 1e-9,
                   "gate origins and world elevation projected height");
-    }
+    };
+    verifyProfile.operator()<0>();
+    verifyProfile.operator()<1>();
+    verifyProfile.operator()<2>();
     std::vector<double> peak(128);
     for (int i = 0; i < 128; ++i) peak[i] = 2 + 30 * std::exp(-0.5 * std::pow((i - 68) / 3.0, 2));
     // 族标准处理：起始 bin 15 的频率轴，参考频率在不在频带内都照常换算风速（是否在带内属硬件配置）。
