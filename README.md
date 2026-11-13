@@ -2,6 +2,8 @@
 
 6/15/30 m 三路直接填写各自 Spectrum<Cdl5ChannelSpec<I>> 的最终数组，保留 FP32 小端解释和每条 32 字节记录中 0/4/8 偏移。功率谱、径向风及独立 CNR 按各路 Spec 计算和传递；channelsReady 的只读共享元组接入九个图页。收包、请求、重试、取消、四束历史和 JSON 保存口径保持。
 
+图窗配置通过 root 明确引用对应通道，避免 QML 未限定访问。公共图窗保持具体型号提供的类型化 setData 入口。
+
 本轮仅本地联调，不推送；与配套 FamilyCore、ChartCore 及官邸源码一起使用。
 
 验证：Windows/MSVC Release 构建及 CTest 3/3 通过，覆盖 UDP 边界、FP32 小端解码、三路静态数组、距离轴、四束结果与九张图装配。Linux DMA pipeline 测试已适配新类型，本轮未运行 Linux 或板端验证。证据：build-1109/static-frames*.log 与 Testing/Temporary/LastTest.log。
