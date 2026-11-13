@@ -1,5 +1,5 @@
 #include <Device.h>
-#include <WindProfile.h>
+#include <DAQFamily/WindProfile.h>
 #include <QFile>
 
 #include <cmath>
