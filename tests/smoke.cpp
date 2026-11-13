@@ -1,3 +1,4 @@
+#include "WindField.h"
 #include <optional>
 #include <QGuiApplication>
 #include <QQmlEngine>
@@ -83,8 +84,8 @@ int main(int argc, char **argv)
             Q_EMIT cdl5->spectrumReady(channel, LinearArray2D<double>(240, 240, Cdl5::RangeStartM, Cdl5::GateSpacingM[channel],
                 16 * Cdl5::BinMHz, Cdl5::BinMHz, std::vector<double>(240 * 240, 1)));
             Q_EMIT cdl5->radialReady(channel, gates, gates);
-            Q_EMIT cdl5->profileReady(channel, std::make_shared<const VerticalWindProfileUnit>(VerticalWindProfileUnit{
-                std::chrono::system_clock::now(), LinearArray<std::optional<LinAlg::Vec3>>(0.0, 3.0 * (channel + 1), {LinAlg::Vec3{1,2,0},LinAlg::Vec3{3,4,0},LinAlg::Vec3{5,6,0}})}));
+            Q_EMIT cdl5->profileReady(channel, shareWindProfile(std::make_shared<const WindField::Frame>(WindField::Frame{
+                std::chrono::system_clock::now(), LinearArray<std::optional<LinAlg::Vec3>>(0.0, 3.0 * (channel + 1), {LinAlg::Vec3{1,2,0},LinAlg::Vec3{3,4,0},LinAlg::Vec3{5,6,0}})})));
         }
         const auto spec = cdl5->chartParameters();
         if (spec["rows"].toInt() != Cdl5::Rows || spec["columns"].toInt() != Cdl5::Columns

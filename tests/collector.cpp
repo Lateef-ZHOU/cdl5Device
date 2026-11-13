@@ -145,7 +145,9 @@ int main(int argc, char **argv)
     for (int channel = 0; channel < 3; ++channel) {
         std::array<WindProfile::Input, 4> grid = beams;
         for (auto &beam : grid) beam.ws = LinearArray<double>(Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], radialSpeeds);
-        const auto profile = WindProfile::Calc(grid, RxTime{});
+        const auto profile = (channel == 0 ? shareWindProfile(WindProfile::Calc<Cdl5ChannelSpec<0>>(grid, RxTime{}))
+            : channel == 1 ? shareWindProfile(WindProfile::Calc<Cdl5ChannelSpec<1>>(grid, RxTime{}))
+                           : shareWindProfile(WindProfile::Calc<Cdl5ChannelSpec<2>>(grid, RxTime{})));
         check(profile && profile->winds.size() == 240, "separate wind profile for each grid");
         for (int gate = 0; gate < 240; ++gate)
             check(std::abs(profile->winds.positionAt(gate) - gate * steps[channel] / 2.0) < 1e-9,
