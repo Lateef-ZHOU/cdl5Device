@@ -1,3 +1,9 @@
+## 2026-11-14：删除旧风场测试依赖
+
+Windows/MSVC Release 构建通过，CTest 3/3。
+
+配合 Algorithm 删除 WindField.h，测试改用标准风廓线帧或删除无用引用；本库生产、保存与取消逻辑不变。不推送。
+
 ## 2026-11-14 风廓线原帧直接传输（用户定）
 
 三路风廓线经 Cdl5Profiles 直接传递具体 VerticalWindProfileUnit 的只读份额。6 m、15 m、30 m 风羽图只取对应项，保留已有通道规格、四束反演、坐标和保存格式；旧 profileReady 接线删除。Windows/MSVC Release 构建、公开头编译及 CTest 3/3 通过。 本轮不推送。
