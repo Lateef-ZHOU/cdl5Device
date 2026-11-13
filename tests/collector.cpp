@@ -21,7 +21,7 @@ struct PeakSpec
 {
     static constexpr const char *name = "";
     static constexpr double wavelengthM = Cdl5::WavelengthM, zeroWindMHz = Zero;
-    static constexpr int rows = 1, columns = 128;
+    static constexpr int rangeGateCount = 1, frequencyBinCount = 128;
     static constexpr double rangeStartM = 0, rangeStepM = 6, frequencyStartMHz = 15 * Cdl5::BinMHz, frequencyStepMHz = Cdl5::BinMHz;
 };
 // 测试按下标查看三路：规格常量取自通道类型，三个产物取引用。

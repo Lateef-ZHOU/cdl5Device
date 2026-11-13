@@ -27,7 +27,7 @@ struct Cdl5ChannelSpec
     static_assert(Cdl5::GateSpacingM == std::array<int, Cdl5::Channels>{6, 15, 30}, "通道名须与门宽一致");
     static constexpr const char *name = Index == 0 ? "ADC0_6m" : Index == 1 ? "ADC0_15m" : "ADC0_30m";
     static constexpr double wavelengthM = Cdl5::WavelengthM, zeroWindMHz = Cdl5::ZeroWindReferenceMHz;
-    static constexpr int rows = Cdl5::Rows, columns = Cdl5::Columns;
+    static constexpr int rangeGateCount = Cdl5::Rows, frequencyBinCount = Cdl5::Columns;
     static constexpr double rangeStartM = Cdl5::RangeStartM, rangeStepM = Cdl5::GateSpacingM[Index];
     static constexpr double frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, frequencyStepMHz = Cdl5::BinMHz;
 };
