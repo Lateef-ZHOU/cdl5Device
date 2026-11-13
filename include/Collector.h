@@ -3,7 +3,6 @@
 #include <memory>
 #include <optional>
 #include <utility>
-#include <vector>
 #include <QString>
 #include <QVector>
 #include <DAQFamily/DAQCollector.h>
@@ -78,15 +77,18 @@ private:
     Frame decode() const
     {
         const char *const data = raw_.constData();
-        std::array<std::vector<double>, Cdl5::Channels> values;
-        for (auto &channel : values)
-            channel.reserve(Points);
-        for (qsizetype offset = Cdl5::RecordBytes; offset < raw_.size(); offset += Cdl5::RecordBytes)
-            for (int channel = 0; channel != Cdl5::Channels; ++channel)
-                values[channel].push_back(Cdl5::power(data + offset + channel * 4));
-        return {DAQChannel<Cdl5ChannelSpec<0>>(std::move(values[0])),
-                DAQChannel<Cdl5ChannelSpec<1>>(std::move(values[1])),
-                DAQChannel<Cdl5ChannelSpec<2>>(std::move(values[2]))};
+        auto six = std::make_unique<Spectrum<Cdl5ChannelSpec<0>>>();
+        auto fifteen = std::make_unique<Spectrum<Cdl5ChannelSpec<1>>>();
+        auto thirty = std::make_unique<Spectrum<Cdl5ChannelSpec<2>>>();
+        for (qsizetype i = 0; i < Points; ++i) {
+            const char *record = data + (i + 1) * Cdl5::RecordBytes;
+            (*six)[i] = Cdl5::power(record);
+            (*fifteen)[i] = Cdl5::power(record + 4);
+            (*thirty)[i] = Cdl5::power(record + 8);
+        }
+        return {DAQChannel<Cdl5ChannelSpec<0>>(std::move(six)),
+                DAQChannel<Cdl5ChannelSpec<1>>(std::move(fifteen)),
+                DAQChannel<Cdl5ChannelSpec<2>>(std::move(thirty))};
     }
 
     QByteArray raw_{FrameBytes, Qt::Uninitialized}; // 原样帧（含帧头记录）；解析后释放

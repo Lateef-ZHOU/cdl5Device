@@ -16,6 +16,17 @@ Q_IMPORT_QML_PLUGIN(LidarUIPlugin)
 Q_IMPORT_QML_PLUGIN(LidarChartsPlugin)
 Q_IMPORT_QML_PLUGIN(LidarTaskUIPlugin)
 Q_IMPORT_QML_PLUGIN(LidarCdl5Plugin)
+template<class Channels, std::size_t... I>
+Channels sampleChannels(std::index_sequence<I...>)
+{
+    const auto channel = []<class C>() {
+        using S = std::remove_const_t<typename decltype(C::spectrum)::element_type>;
+        auto spectrum = std::make_unique<S>();
+        std::fill(spectrum->begin(), spectrum->end(), 1.0);
+        return C(std::move(spectrum));
+    };
+    return std::make_shared<typename Channels::element_type>(channel.template operator()<std::tuple_element_t<I, typename Channels::element_type>>()...);
+}
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -59,7 +70,7 @@ int main(int argc, char **argv)
                     || positions["gateSpacing"].toDouble() != steps[channel]
                     || barbs->property("configuration").toMap()["maxHeight"].toInt() != 240 * steps[channel])
                     return 13;
-                const auto *surfaceItem = surface->findChild<SurfaceItem *>();
+                const auto *surfaceItem = qobject_cast<SurfaceItem *>(surface->property("plot").value<QObject *>());
                 if (!surfaceItem) return 14;
                 // 首帧前的初始轴：斜距按本路门宽，频率按默认起始 bin 15。
                 const auto grid = surfaceItem->configuration();
@@ -79,9 +90,7 @@ int main(int argc, char **argv)
             if (!page->findChild<QObject *>(QString("radialADC%1").arg(channel))
                 || !page->findChild<QObject *>(QString("barbsADC%1").arg(channel))) return 10;
             // 族信号经页面接线交给图窗；类型不符时 QML 会报警告（warned）。
-            const auto gates = std::make_shared<const LinearArray<double>>(Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], std::vector<double>(240, 1));
-            Q_EMIT cdl5->spectrumReady(channel, std::make_shared<const LinearArray2D<double>>(240, 240, Cdl5::RangeStartM, Cdl5::GateSpacingM[channel], 16 * Cdl5::BinMHz, Cdl5::BinMHz, std::vector<double>(240 * 240, 1)));
-            Q_EMIT cdl5->radialReady(channel, gates, gates);
+            Q_EMIT qobject_cast<DeviceT *>(backend)->channelsReady(sampleChannels<DeviceT::Channels>(std::make_index_sequence<std::tuple_size_v<typename DeviceT::Channels::element_type>>{}));
             Cdl5Profiles profiles;
             std::apply([&](auto &...p) {
                 ((p = std::make_shared<const std::remove_const_t<typename std::decay_t<decltype(p)>::element_type>>(

@@ -1,5 +1,7 @@
 #pragma once
 #include "WindBarbItem.h"
+#include "SurfaceItem.h"
+#include "Wind2DItem.h"
 #include <limits>
 #include <optional>
 #include <QDateTime>
@@ -12,6 +14,12 @@
 
 // Qt 只登记具体结果元组；各项仍指向算法生成的原帧。
 using Cdl5Profiles = DAQDevice<PcapHandle, Cdl5Collector>::Profiles;
+using Cdl5Channels = DAQDevice<PcapHandle, Cdl5Collector>::Channels;
+struct Cdl5ChannelsQml {
+    Q_GADGET
+    QML_FOREIGN(Cdl5Channels)
+    QML_ANONYMOUS
+};
 struct Cdl5ProfilesQml
 {
     Q_GADGET
@@ -80,8 +88,7 @@ public:
     }
 Q_SIGNALS:
     void lockChanged(HandleCore::ResourcePhase phase) override;
-    void spectrumReady(int channel, const LinearSpectrumPtr &spectrum) override;
-    void radialReady(int channel, const LinearSeriesPtr &speeds, const LinearSeriesPtr &cnr) override;
+    void channelsReady(const Cdl5Channels &channels) override;
     void profilesReady(const Cdl5Profiles &profiles) override;
 public Q_SLOTS:
     bool open(int interfaceIndex)
@@ -153,4 +160,130 @@ public:
     explicit Cdl5ThirtyWindBarb(QQuickItem *parent = nullptr) : WindBarbItem(parent) {}
     Q_INVOKABLE void appendProfiles(const Cdl5Profiles &profiles)
     { appendColumn(std::get<2>(profiles)); }
+};
+
+// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
+class Cdl5SixSpectrum : public SurfaceItem
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5SixSpectrum(QQuickItem *parent = nullptr) : SurfaceItem(parent) {}
+    Q_INVOKABLE bool setData(const Cdl5Channels &channels, double low, double high)
+    {
+        if (!channels) return false;
+        return setSpectrum(std::get<0>(*channels).spectrum, low, high);
+    }
+};
+
+// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
+class Cdl5SixRadialWind : public Wind2DItem
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5SixRadialWind(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
+    Q_INVOKABLE void setData(const Cdl5Channels &channels)
+    {
+        if (!channels) return;
+        setRadialWind(std::get<0>(*channels).radialWind);
+    }
+};
+
+// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
+class Cdl5SixCNR : public Wind2DItem
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5SixCNR(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
+    Q_INVOKABLE void setData(const Cdl5Channels &channels)
+    {
+        if (!channels) return;
+        setCNR(std::get<0>(*channels).cnr);
+    }
+};
+
+// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
+class Cdl5FifteenSpectrum : public SurfaceItem
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5FifteenSpectrum(QQuickItem *parent = nullptr) : SurfaceItem(parent) {}
+    Q_INVOKABLE bool setData(const Cdl5Channels &channels, double low, double high)
+    {
+        if (!channels) return false;
+        return setSpectrum(std::get<1>(*channels).spectrum, low, high);
+    }
+};
+
+// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
+class Cdl5FifteenRadialWind : public Wind2DItem
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5FifteenRadialWind(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
+    Q_INVOKABLE void setData(const Cdl5Channels &channels)
+    {
+        if (!channels) return;
+        setRadialWind(std::get<1>(*channels).radialWind);
+    }
+};
+
+// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
+class Cdl5FifteenCNR : public Wind2DItem
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5FifteenCNR(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
+    Q_INVOKABLE void setData(const Cdl5Channels &channels)
+    {
+        if (!channels) return;
+        setCNR(std::get<1>(*channels).cnr);
+    }
+};
+
+// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
+class Cdl5ThirtySpectrum : public SurfaceItem
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5ThirtySpectrum(QQuickItem *parent = nullptr) : SurfaceItem(parent) {}
+    Q_INVOKABLE bool setData(const Cdl5Channels &channels, double low, double high)
+    {
+        if (!channels) return false;
+        return setSpectrum(std::get<2>(*channels).spectrum, low, high);
+    }
+};
+
+// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
+class Cdl5ThirtyRadialWind : public Wind2DItem
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5ThirtyRadialWind(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
+    Q_INVOKABLE void setData(const Cdl5Channels &channels)
+    {
+        if (!channels) return;
+        setRadialWind(std::get<2>(*channels).radialWind);
+    }
+};
+
+// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
+class Cdl5ThirtyCNR : public Wind2DItem
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5ThirtyCNR(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
+    Q_INVOKABLE void setData(const Cdl5Channels &channels)
+    {
+        if (!channels) return;
+        setCNR(std::get<2>(*channels).cnr);
+    }
 };

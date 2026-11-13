@@ -39,10 +39,18 @@ int main(int argc, char **argv)
     check(backend.open(p),"open UDP backend");
     until([&] { return backend.isOpen(); });
     int signals=0;
-    QObject::connect(&backend,&DeviceT::spectrumReady,&app,[&](int channel,const LinearSpectrumPtr &values) {
+    QObject::connect(&backend,&DeviceT::channelsReady,&app,[&](const DeviceT::Channels &channels) {
         check(QThread::currentThread()==app.thread(),"plot data delivered to main thread");
-        check(static_cast<qsizetype>(values->size())==points&&values->front()==channel+1.25&&values->back()==channel+1.25,"three independent spectra");
-        ++signals;
+        int index = 0;
+        std::apply([&](const auto &...channel) {
+            const auto verify = [&](const auto &value) {
+                check(static_cast<qsizetype>(value.spectrum->size()) == points
+                    && (*value.spectrum)[0] == index + 1.25 && (*value.spectrum)[points - 1] == index + 1.25,
+                    "three independent static spectra");
+                ++index; ++signals;
+            };
+            (verify(channel), ...);
+        }, *channels);
     });
     bool completed=false;
     const auto context=*backend.paramsFor(1,std::nullopt,QDir(output.path()),QStringLiteral("probe"),false);

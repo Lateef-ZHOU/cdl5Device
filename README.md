@@ -1,3 +1,11 @@
+## 2026-11-14：静态功率谱、径向风与 CNR（用户定）
+
+6/15/30 m 三路直接填写各自 Spectrum<Cdl5ChannelSpec<I>> 的最终数组，保留 FP32 小端解释和每条 32 字节记录中 0/4/8 偏移。功率谱、径向风及独立 CNR 按各路 Spec 计算和传递；channelsReady 的只读共享元组接入九个图页。收包、请求、重试、取消、四束历史和 JSON 保存口径保持。
+
+本轮仅本地联调，不推送；与配套 FamilyCore、ChartCore 及官邸源码一起使用。
+
+验证：Windows/MSVC Release 构建及 CTest 3/3 通过，覆盖 UDP 边界、FP32 小端解码、三路静态数组、距离轴、四束结果与九张图装配。Linux DMA pipeline 测试已适配新类型，本轮未运行 Linux 或板端验证。证据：build-1109/static-frames*.log 与 Testing/Temporary/LastTest.log。
+
 ## 2026-11-14：接入 FamilyCore（用户定）
 
 依赖声明与开关改用 FamilyCore / FAMILYCORE_WITH_*，协程头由 DeviceCore 提供。当前仅本地整理，GitHub 仍为 TaskCore，旧固定提交暂不更新；联调使用 `FETCHCONTENT_SOURCE_DIR_LIDAR_FAMILYCORE` 指向相邻 FamilyCore，并覆盖配套 DeviceCore/Algorithm 等源码。Windows 主程序或 simonly 的实际消费目标构建通过，业务与数据格式不变；未推送、未更新交付包。
