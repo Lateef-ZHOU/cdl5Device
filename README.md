@@ -1,3 +1,7 @@
+## 2026-11-14：停止门依赖接入
+
+HandleCore 停止门改为标准二元信号量后，DMA 采集测试显式包含自己的 QSemaphore 屏障头，不再借用传输基类的间接包含。CDL5 生产代码和 DMA 控制不变；本轮 Linux x86_64 构建/CTest 3/3 通过，不代表 ARM 标准库已经核查。未推送。
+
 ## 2026-11-14：UTF-8 日志接口（用户定）
 
 采集 Handle、DMA 异常和官邸日志统一为 UTF-8 std::string；DMA 错误码与累积范围使用 std::format。异常 what() 直接进入拥有字节的日志值；QML 使用 UICore 转换。采集、DMA、重试、取消和关闭保持。

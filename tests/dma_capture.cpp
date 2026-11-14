@@ -1,3 +1,4 @@
+#include <QSemaphore>
 #include <string>
 #include "CallbackHandle.h"
 #include "DmaFixture.h"
