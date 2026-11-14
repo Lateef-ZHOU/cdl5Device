@@ -75,7 +75,7 @@ private:
     {
         const_cast<ProbeHandle *>(this)->wake.release();
     }
-    bool connSend(std::shared_ptr<DmaConnection>, std::span<const unsigned char>) const override { return false; }
+    bool connSend(std::shared_ptr<DmaConnection>, const std::vector<unsigned char> &) const override { return false; }
     RXRuling onRX(std::span<const unsigned char>, RxTime, std::shared_ptr<DmaConnection>) override { return {}; }
     TXRuling onTX(std::span<const unsigned char>, std::shared_ptr<DmaConnection>) const override { return {}; }
 };

@@ -1,3 +1,11 @@
+## 2026-11-14：connSend 引用传输验证
+
+DMA 发送覆盖及测试替身适配 connSend 的 vector 只读引用。Linux Release 与 DMA/协议测试 3/3、Bridge 全端点集成 4/4 通过；Windows 主程序构建与离屏冒烟通过。证据主程序 build/connsend-linux.log 与 ArchHFNL:~/connsend-20261114。未操作板卡，不推送。
+
+## 2026-11-14：connSend 使用自有数组的只读引用（用户定）
+
+connSend 覆盖改为 const std::vector<unsigned char>&，与 HandleCore 保持一致；仅同步读取最终报文字节，不增加成员缓存或兼容转发。接收视图、协议、重连及关闭行为不变。
+
 ## 2026-11-14：Handle 收发边界
 
 DMA Handle 的收包 sink、onRX/onTX、connSend 改用只读 span；发送裁决拥有字节，命令同步解析后仍按整数请求交给 worker。采集块活到同步派发结束，Bridge 跨线程前复制取得所有权。 发送顺序、重连和关闭不变；本轮不部署硬件、不推送。统一契约见 HandleCore/docs/reference.md。

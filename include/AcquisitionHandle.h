@@ -1,3 +1,4 @@
+#include <vector>
 #include <string>
 #include <format>
 // SPDX-License-Identifier: GPL-2.0
@@ -80,7 +81,7 @@ private:
         return DmaHandle::connOpen(params);
     }
     void connBreak(std::shared_ptr<DmaConnection>) const override { post(-1); }
-    bool connSend(std::shared_ptr<DmaConnection>, std::span<const unsigned char> view) const override
+    bool connSend(std::shared_ptr<DmaConnection>, const std::vector<unsigned char> &view) const override
     {
         const auto bytes = QByteArray::fromRawData(reinterpret_cast<const char *>(view.data()), static_cast<qsizetype>(view.size()));
         const auto request = Cdl5::decodeCommand(bytes);
