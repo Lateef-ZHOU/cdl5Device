@@ -76,7 +76,7 @@ private:
     }
     bool connSend(std::shared_ptr<DmaConnection>, const QByteArray &) const override { return false; }
     RXRuling onRX(const QByteArray &, RxTime, std::shared_ptr<DmaConnection>) override { return {}; }
-    TXRuling onTX(const QByteArray &, std::shared_ptr<DmaConnection>) const override { return {}; }
+    TXRuling onTX(QByteArray &, std::shared_ptr<DmaConnection>) const override { return {}; }
 };
 }
 

@@ -1,3 +1,9 @@
+## 2026-11-14：适配 TXRuling 只读 span（用户定）
+
+onTX 返回命令字节的只读 span，DMA connSend 仍同步解析请求后交工作线程，不留存视图。 重连和关闭保持，与本地 HandleCore 同批使用，暂不推送。
+
+Linux DMA/UDP 构建及 CTest 3/3、Bridge DMA 转发通过；仅替身验证，证据 ArchHFNL:~/txspan-20261114/。
+
 ## 2026-11-14：只读 span 接收裁决（用户定）
 
 2026-11-14 接收裁决适配：onRX 返回 `std::span<const unsigned char>` 借用接收数据，onData 同步接收零拷贝 QByteArray 视图。留存或异步投递前必须复制取得字节所有权，不能仅浅拷贝视图。协议、重连和关闭逻辑不变；与本地 HandleCore 同批使用，尚未推送。

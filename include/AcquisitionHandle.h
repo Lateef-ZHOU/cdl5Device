@@ -88,13 +88,14 @@ private:
     RXRuling onRX(const QByteArray &bytes, RxTime at, std::shared_ptr<DmaConnection>) override
     { return {{reinterpret_cast<const unsigned char *>(bytes.constData()),
                  static_cast<std::size_t>(bytes.size())}, RXRuling::Decode, at}; }
-    TXRuling onTX(const QByteArray &bytes, std::shared_ptr<DmaConnection> conn) const override
+    TXRuling onTX(QByteArray &bytes, std::shared_ptr<DmaConnection> conn) const override
     {
         if (!conn || !Cdl5::decodeCommand(bytes)) {
             Q_EMIT logMessage(QStringLiteral("CDL5 未连接或采集命令无效"));
             return {};
         }
-        return {bytes, TXRuling::Encode};
+        return {{reinterpret_cast<const unsigned char *>(bytes.constData()),
+                 static_cast<std::size_t>(bytes.size())}, TXRuling::Encode};
     }
     void post(int request) const
     {
