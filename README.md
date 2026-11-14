@@ -1,3 +1,9 @@
+## 2026-11-14：只读 span 接收裁决（用户定）
+
+2026-11-14 接收裁决适配：onRX 返回 `std::span<const unsigned char>` 借用接收数据，onData 同步接收零拷贝 QByteArray 视图。留存或异步投递前必须复制取得字节所有权，不能仅浅拷贝视图。协议、重连和关闭逻辑不变；与本地 HandleCore 同批使用，尚未推送。
+
+Linux/GCC/Qt 6.8.3：独立 DMA/UDP 构建及 CTest 3/3 通过；Bridge DMA 转发亦通过。证据在 ArchHFNL:~/rxspan-20261114/cdl5Device-{config,build,test}.log；均使用硬件替身，未更新板端。验证日志为相应构建目录下 rxspan-build.log / rxspan-test.log（Linux 使用上述命名）。
+
 ## 2026-11-14：静态功率谱、径向风与 CNR（用户定）
 
 6/15/30 m 三路直接填写各自 Spectrum<Cdl5ChannelSpec<I>> 的最终数组，保留 FP32 小端解释和每条 32 字节记录中 0/4/8 偏移。功率谱、径向风及独立 CNR 按各路 Spec 计算和传递；channelsReady 的只读共享元组接入九个图页。收包、请求、重试、取消、四束历史和 JSON 保存口径保持。

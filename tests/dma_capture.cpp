@@ -7,7 +7,7 @@ int main(int argc,char **argv)
     {
         prepare();
         CallbackHandle<Cdl5DmaHandle> handle([&](const QByteArray &bytes,RxTime) {
-            chunks.push_back(bytes);
+            chunks.emplace_back(bytes.constData(), bytes.size());
             if(chunks.size()==1801) delivered.release();
         });
         QObject::connect(&handle,&Cdl5DmaHandle::connectionChanged,&handle,[](HandleCore::ResourcePhase phase) { if(phase == HandleCore::ResourcePhase::Acquired)connected.release(); },Qt::DirectConnection);

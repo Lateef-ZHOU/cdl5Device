@@ -86,7 +86,8 @@ private:
         return true; // Accepted by the worker; FPGA completion is not synchronous.
     }
     RXRuling onRX(const QByteArray &bytes, RxTime at, std::shared_ptr<DmaConnection>) override
-    { return {bytes, RXRuling::Decode, at}; }
+    { return {{reinterpret_cast<const unsigned char *>(bytes.constData()),
+                 static_cast<std::size_t>(bytes.size())}, RXRuling::Decode, at}; }
     TXRuling onTX(const QByteArray &bytes, std::shared_ptr<DmaConnection> conn) const override
     {
         if (!conn || !Cdl5::decodeCommand(bytes)) {
