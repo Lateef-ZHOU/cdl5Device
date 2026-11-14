@@ -1,3 +1,7 @@
+## 2026-11-14：vector 引用发送验证
+
+测试命令适配 const vector&，生产 DMA 逻辑不改。Linux Release、公开头及 CTest 3/3；Bridge 全端点构建及 CTest 4/4 通过。证据 ArchHFNL:~/vectorsend-20261114 和主程序 build/vectorsend-linux.log。未更新板卡、不推送。
+
 ## 2026-11-14：onData 只读 span 验证
 
 DMA 末端测试适配 onData 只读 span，生产 DMA 逻辑不改。Linux Release、公开头和 CTest 3/3 通过；BridgeCore 全端点构建及 CTest 4/4 通过。证据 ArchHFNL:~/ondata-20261114 和主程序 build/ondata-linux.log；未更新板卡、不推送。
