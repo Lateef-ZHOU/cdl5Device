@@ -65,7 +65,7 @@ private:
     }
     void logMessage(const std::string &) const override { ++const_cast<ProbeHandle *>(this)->errorCount; }
     bool connLoop(std::shared_ptr<DmaConnection>,
-        std::function<void(std::shared_ptr<DmaConnection>, const QByteArray &, RxTime)>) override
+        std::function<void(std::shared_ptr<DmaConnection>, std::span<const unsigned char>, RxTime)>) override
     {
         // 测试只驻留连接，不提交 DMA、不读写寄存器。
         wake.acquire();
@@ -75,9 +75,9 @@ private:
     {
         const_cast<ProbeHandle *>(this)->wake.release();
     }
-    bool connSend(std::shared_ptr<DmaConnection>, const QByteArray &) const override { return false; }
-    RXRuling onRX(const QByteArray &, RxTime, std::shared_ptr<DmaConnection>) override { return {}; }
-    TXRuling onTX(QByteArray &, std::shared_ptr<DmaConnection>) const override { return {}; }
+    bool connSend(std::shared_ptr<DmaConnection>, std::span<const unsigned char>) const override { return false; }
+    RXRuling onRX(std::span<const unsigned char>, RxTime, std::shared_ptr<DmaConnection>) override { return {}; }
+    TXRuling onTX(std::span<const unsigned char>, std::shared_ptr<DmaConnection>) const override { return {}; }
 };
 }
 

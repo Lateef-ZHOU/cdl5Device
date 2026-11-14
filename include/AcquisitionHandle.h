@@ -80,24 +80,26 @@ private:
         return DmaHandle::connOpen(params);
     }
     void connBreak(std::shared_ptr<DmaConnection>) const override { post(-1); }
-    bool connSend(std::shared_ptr<DmaConnection>, const QByteArray &bytes) const override
+    bool connSend(std::shared_ptr<DmaConnection>, std::span<const unsigned char> view) const override
     {
+        const auto bytes = QByteArray::fromRawData(reinterpret_cast<const char *>(view.data()), static_cast<qsizetype>(view.size()));
         const auto request = Cdl5::decodeCommand(bytes);
         if (!request) return false;
         post(static_cast<int>(*request));
         return true; // Accepted by the worker; FPGA completion is not synchronous.
     }
-    RXRuling onRX(const QByteArray &bytes, RxTime at, std::shared_ptr<DmaConnection>) override
-    { return {{reinterpret_cast<const unsigned char *>(bytes.constData()),
-                 static_cast<std::size_t>(bytes.size())}, RXRuling::Decode, at}; }
-    TXRuling onTX(QByteArray &bytes, std::shared_ptr<DmaConnection> conn) const override
+    RXRuling onRX(std::span<const unsigned char> view, RxTime at, std::shared_ptr<DmaConnection>) override
     {
+        return {view, RXRuling::Decode, at};
+    }
+    TXRuling onTX(std::span<const unsigned char> view, std::shared_ptr<DmaConnection> conn) const override
+    {
+        const auto bytes = QByteArray::fromRawData(reinterpret_cast<const char *>(view.data()), static_cast<qsizetype>(view.size()));
         if (!conn || !Cdl5::decodeCommand(bytes)) {
             Q_EMIT logMessage("CDL5 未连接或采集命令无效");
             return {};
         }
-        return {{reinterpret_cast<const unsigned char *>(bytes.constData()),
-                 static_cast<std::size_t>(bytes.size())}, TXRuling::Encode};
+        return {{view.begin(), view.end()}, TXRuling::Encode};
     }
     void post(int request) const
     {
@@ -124,7 +126,7 @@ private:
         }
     }
     void capture(const std::shared_ptr<DmaConnection> &conn, int seconds,
-        const std::function<void(std::shared_ptr<DmaConnection>, const QByteArray &, RxTime)> &sink)
+        const std::function<void(std::shared_ptr<DmaConnection>, std::span<const unsigned char>, RxTime)> &sink)
     {
         require(stopped(*conn), "FPGA is not stopped; no configuration applied");
         const quint32 geometry = readRegister(*conn, Geometry);
@@ -189,12 +191,12 @@ private:
                 require(count != 0, "Unexpected DMA EOF");
                 done += count;
             }
-            sink(conn, bytes, at); // Owning QByteArray; Bridge retains its implicit-sharing storage.
+            sink(conn, {reinterpret_cast<const unsigned char *>(bytes.constData()), static_cast<std::size_t>(bytes.size())}, at); // Synchronous borrow; queued consumers must copy before this block is released.
             sent += static_cast<quint64>(length);
         }
     }
     bool connLoop(std::shared_ptr<DmaConnection> conn,
-        std::function<void(std::shared_ptr<DmaConnection>, const QByteArray &, RxTime)> sink) override
+        std::function<void(std::shared_ptr<DmaConnection>, std::span<const unsigned char>, RxTime)> sink) override
     {
         try {
             while (true) {

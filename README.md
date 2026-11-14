@@ -1,3 +1,7 @@
+## 2026-11-14：Handle 收发边界
+
+DMA Handle 的收包 sink、onRX/onTX、connSend 改用只读 span；发送裁决拥有字节，命令同步解析后仍按整数请求交给 worker。采集块活到同步派发结束，Bridge 跨线程前复制取得所有权。 发送顺序、重连和关闭不变；本轮不部署硬件、不推送。统一契约见 HandleCore/docs/reference.md。
+
 ## 2026-11-14：适配只读发送视图
 
 DMA/UDP 测试适配 Handle 的只读 span 单条发送入口，临时 QByteArray 只在完整发送表达式内借用；生产采集、裁决、重连和关闭保持。
@@ -16,7 +20,7 @@ HandleCore 停止门改为标准二元信号量后，DMA 采集测试显式包�
 
 验证：Linux/GCC/Qt 6.8.3 独立构建和 CTest 3/3 通过（ArchHFNL:~/logstring-20261114/cdl5Device-*.log）；Windows 官邸随主程序构建与 8 秒离屏冒烟通过。未更新板卡或做 ARM/实物验证。
 
-## 2026-11-14：适配 TXRuling 只读 span（用户定）
+## 历史：2026-11-14 TXRuling 只读 span（已被上方拥有型裁决取代）
 
 onTX 返回命令字节的只读 span，DMA connSend 仍同步解析请求后交工作线程，不留存视图。 重连和关闭保持，与本地 HandleCore 同批使用，暂不推送。
 
