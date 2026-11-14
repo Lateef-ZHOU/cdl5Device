@@ -54,7 +54,7 @@ public:
     int errorCount = 0;
     int closeCount = 0;
 private:
-    void onData(const QByteArray &, RxTime) override {}
+    void onData(std::span<const unsigned char>, RxTime) override {}
     QSemaphore wake;
     void connectionChanged(HandleCore::ResourcePhase phase) override
     {

@@ -1,3 +1,7 @@
+## 2026-11-14：onData 只读 span 验证
+
+DMA 末端测试适配 onData 只读 span，生产 DMA 逻辑不改。Linux Release、公开头和 CTest 3/3 通过；BridgeCore 全端点构建及 CTest 4/4 通过。证据 ArchHFNL:~/ondata-20261114 和主程序 build/ondata-linux.log；未更新板卡、不推送。
+
 ## 2026-11-14：发送裁决所有权与收发 span（用户定）
 
 DMA 收发口与接收 sink 适配只读 span，TXRuling 拥有下发命令。Linux x86_64 Release、公开头与 DMA/UDP CTest 3/3 通过；BridgeCore 全端点构建和 CTest 4/4 通过。Windows 主程序使用本地配套库构建和生命周期 8/8 通过。日志在主程序 build/wire-linux.log、ArchHFNL:~/wire-20261114。没有更新 ARM 板端程序或真实 DMA 采集；不推送。

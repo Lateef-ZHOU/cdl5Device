@@ -28,7 +28,7 @@ Linux DMA/UDP 构建及 CTest 3/3、Bridge DMA 转发通过；仅替身验证，
 
 ## 2026-11-14：只读 span 接收裁决（用户定）
 
-2026-11-14 接收裁决适配：onRX 返回 `std::span<const unsigned char>` 借用接收数据，onData 同步接收零拷贝 QByteArray 视图。留存或异步投递前必须复制取得字节所有权，不能仅浅拷贝视图。协议、重连和关闭逻辑不变；与本地 HandleCore 同批使用，尚未推送。
+2026-11-14 接收裁决适配：onRX 返回 `std::span<const unsigned char>` 借用接收数据，onData 同步借用只读 span，现有 Qt 解析器在消费处零拷贝适配。留存或异步投递前必须复制取得字节所有权，不能仅浅拷贝视图。协议、重连和关闭逻辑不变；与本地 HandleCore 同批使用，尚未推送。
 
 Linux/GCC/Qt 6.8.3：独立 DMA/UDP 构建及 CTest 3/3 通过；Bridge DMA 转发亦通过。证据在 ArchHFNL:~/rxspan-20261114/cdl5Device-{config,build,test}.log；均使用硬件替身，未更新板端。验证日志为相应构建目录下 rxspan-build.log / rxspan-test.log（Linux 使用上述命名）。
 
