@@ -1,3 +1,11 @@
+## 2026-11-14：UTF-8 日志接口（用户定）
+
+采集 Handle、DMA 异常和官邸日志统一为 UTF-8 std::string；DMA 错误码与累积范围使用 std::format。异常 what() 直接进入拥有字节的日志值；QML 使用 UICore 转换。采集、DMA、重试、取消和关闭保持。
+
+需要支持 C++20 std::format 的标准库。本轮仅本地修改与验证，不推送。
+
+验证：Linux/GCC/Qt 6.8.3 独立构建和 CTest 3/3 通过（ArchHFNL:~/logstring-20261114/cdl5Device-*.log）；Windows 官邸随主程序构建与 8 秒离屏冒烟通过。未更新板卡或做 ARM/实物验证。
+
 ## 2026-11-14：适配 TXRuling 只读 span（用户定）
 
 onTX 返回命令字节的只读 span，DMA connSend 仍同步解析请求后交工作线程，不留存视图。 重连和关闭保持，与本地 HandleCore 同批使用，暂不推送。

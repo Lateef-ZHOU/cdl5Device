@@ -26,7 +26,7 @@ protected:
         }
         catch (const std::system_error &error)
         {
-            Q_EMIT logMessage(QString::fromUtf8(error.what()));
+            Q_EMIT logMessage(error.what());
             return {};
         }
     }

@@ -1,3 +1,4 @@
+#include <string>
 // SPDX-License-Identifier: GPL-2.0
 #include <functional>
 #include <DmaHandle.h>
@@ -62,7 +63,7 @@ private:
         else if (phase == HandleCore::ResourcePhase::AboutToRelease)
             ++closeCount;
     }
-    void logMessage(const QString &) const override { ++const_cast<ProbeHandle *>(this)->errorCount; }
+    void logMessage(const std::string &) const override { ++const_cast<ProbeHandle *>(this)->errorCount; }
     bool connLoop(std::shared_ptr<DmaConnection>,
         std::function<void(std::shared_ptr<DmaConnection>, const QByteArray &, RxTime)>) override
     {

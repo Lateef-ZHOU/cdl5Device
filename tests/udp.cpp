@@ -1,3 +1,4 @@
+#include <string>
 #include "CallbackHandle.h"
 #include <PcapHandle.h>
 #include <QCoreApplication>
@@ -43,7 +44,7 @@ int main(int argc, char **argv)
     int diagnostics = 0;
     CallbackHandle<PcapHandle> handle([](const QByteArray &, RxTime) {});
     QObject::connect(&handle, &PcapHandle::logMessage, &app,
-                     [&](const QString &) { ++diagnostics; });
+                     [&](const std::string &) { ++diagnostics; });
     check(!handle.send(QByteArray("offline")), "unconnected transport rejects send");
     check(diagnostics == 1, "Handle owns failure diagnostic");
     handle.close();

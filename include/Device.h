@@ -1,4 +1,5 @@
 #pragma once
+#include <format>
 #include "WindBarbItem.h"
 #include "SurfaceItem.h"
 #include "Wind2DItem.h"
@@ -68,8 +69,7 @@ public:
     {
         if (accumSec < 1 || accumSec > Cdl5::MaxAccumSeconds)
         {
-            Q_EMIT logMessage(QStringLiteral("累积时间 %1 秒超出本型号范围（%2~%3 秒），未启动")
-                                  .arg(accumSec).arg(1).arg(Cdl5::MaxAccumSeconds));
+            Q_EMIT logMessage(std::format("累积时间 {} 秒超出本型号范围（{}~{} 秒），未启动", accumSec, 1, Cdl5::MaxAccumSeconds));
             return std::nullopt;
         }
         return DAQParameters(*this, accumSec, std::move(pose), std::move(saveRoot), std::move(sessionDir), sync);

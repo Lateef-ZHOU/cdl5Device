@@ -1,3 +1,4 @@
+#include <string>
 #include "CallbackHandle.h"
 #include "DmaFixture.h"
 int main(int argc,char **argv)
@@ -11,7 +12,7 @@ int main(int argc,char **argv)
             if(chunks.size()==1801) delivered.release();
         });
         QObject::connect(&handle,&Cdl5DmaHandle::connectionChanged,&handle,[](HandleCore::ResourcePhase phase) { if(phase == HandleCore::ResourcePhase::Acquired)connected.release(); },Qt::DirectConnection);
-        QObject::connect(&handle,&Cdl5DmaHandle::logMessage,&handle,[](const QString &s) { ++logs;std::cerr<<s.toStdString()<<'\n'; },Qt::DirectConnection);
+        QObject::connect(&handle,&Cdl5DmaHandle::logMessage,&handle,[](const std::string &utf8Message) { const QString s = QString::fromUtf8(utf8Message.data(), qsizetype(utf8Message.size())); ++logs;std::cerr<<s.toStdString()<<'\n'; },Qt::DirectConnection);
         auto params=Cdl5DmaHandle::parameters("/fake/dma");params.memoryDevice="/fake/mem";
         check(handle.open(params)&&connected.tryAcquire(1,2000),"open concrete DMA handle");
         check(!handle.send(QByteArray("bad")),"bad command rejected");
@@ -40,7 +41,7 @@ int main(int argc,char **argv)
         QObject::connect(&handle,&Cdl5DmaHandle::connectionChanged,&handle,[](HandleCore::ResourcePhase phase) {
             if(phase == HandleCore::ResourcePhase::Acquired) connected.release();
         },Qt::DirectConnection);
-        QObject::connect(&handle,&Cdl5DmaHandle::logMessage,&handle,[&](const QString &s) {
+        QObject::connect(&handle,&Cdl5DmaHandle::logMessage,&handle,[&](const std::string &utf8Message) { const QString s = QString::fromUtf8(utf8Message.data(), qsizetype(utf8Message.size()));
             if(s.startsWith("Unsupported")) rejected.release();
         },Qt::DirectConnection);
         auto params=Cdl5DmaHandle::parameters("/fake/dma");params.memoryDevice="/fake/mem";
@@ -52,7 +53,7 @@ int main(int argc,char **argv)
         prepare();fault=fail;QSemaphore error;
         CallbackHandle<Cdl5DmaHandle> handle([](const QByteArray &,RxTime) { check(false,"failed capture cannot upload"); });
         QObject::connect(&handle,&Cdl5DmaHandle::connectionChanged,&handle,[](HandleCore::ResourcePhase phase) { if(phase == HandleCore::ResourcePhase::Acquired)connected.release(); },Qt::DirectConnection);
-        QObject::connect(&handle,&Cdl5DmaHandle::logMessage,&handle,[&](const QString &s) {
+        QObject::connect(&handle,&Cdl5DmaHandle::logMessage,&handle,[&](const std::string &utf8Message) { const QString s = QString::fromUtf8(utf8Message.data(), qsizetype(utf8Message.size()));
             if(s.startsWith("DMA")||s.startsWith("Unexpected")) error.release();
         },Qt::DirectConnection);
         auto params=Cdl5DmaHandle::parameters("/fake/dma");params.memoryDevice="/fake/mem";

@@ -1,3 +1,5 @@
+#include <string>
+#include <format>
 // SPDX-License-Identifier: GPL-2.0
 #pragma once
 #include <functional>
@@ -32,7 +34,7 @@ public:
         return {std::move(path), "/dev/mem", 0x80002000, 4096};
     }
 Q_SIGNALS:
-    void logMessage(const QString &message) const override;
+    void logMessage(const std::string &message) const override;
     void connectionChanged(HandleCore::ResourcePhase connected) override;
 
 private:
@@ -72,7 +74,7 @@ private:
         // Before Handle publishes the new connection or emits connectionChanged(Acquired).
         { const std::lock_guard lock(gate_); pending_.reset(); }
         if (params.registerBytes < Apply + sizeof(quint32) || params.registerBase % alignof(quint32)) {
-            Q_EMIT logMessage(QStringLiteral("CDL5 寄存器映射范围或对齐错误"));
+            Q_EMIT logMessage("CDL5 寄存器映射范围或对齐错误");
             return {};
         }
         return DmaHandle::connOpen(params);
@@ -91,7 +93,7 @@ private:
     TXRuling onTX(QByteArray &bytes, std::shared_ptr<DmaConnection> conn) const override
     {
         if (!conn || !Cdl5::decodeCommand(bytes)) {
-            Q_EMIT logMessage(QStringLiteral("CDL5 未连接或采集命令无效"));
+            Q_EMIT logMessage("CDL5 未连接或采集命令无效");
             return {};
         }
         return {{reinterpret_cast<const unsigned char *>(bytes.constData()),
@@ -112,13 +114,13 @@ private:
     {
         writeRegister(conn, Enable, 0);
         if (::ioctl(conn.dmaDescriptor(), CDL5_DMA_RESET) != 0)
-            Q_EMIT logMessage(QStringLiteral("CDL5 DMA RESET 失败：%1").arg(errno));
+            Q_EMIT logMessage(std::format("CDL5 DMA RESET 失败：{}", errno));
         if (!stopped(conn)) {
             writeRegister(conn, Enable, 1u << 16);
             const auto deadline = Clock::now() + std::chrono::milliseconds(200);
             while (!stopped(conn) && Clock::now() < deadline)
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            if (!stopped(conn)) Q_EMIT logMessage(QStringLiteral("CDL5 FPGA 停止超时，下一次采集将拒绝"));
+            if (!stopped(conn)) Q_EMIT logMessage("CDL5 FPGA 停止超时，下一次采集将拒绝");
         }
     }
     void capture(const std::shared_ptr<DmaConnection> &conn, int seconds,
@@ -208,7 +210,7 @@ private:
                 capture(conn, request, sink);
             }
         } catch (const std::exception &error) {
-            Q_EMIT logMessage(QString::fromUtf8(error.what()));
+            Q_EMIT logMessage(error.what());
             return false;
         }
     }
