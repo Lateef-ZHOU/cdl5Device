@@ -2,6 +2,13 @@
 #include <string>
 #include "CallbackHandle.h"
 #include "DmaFixture.h"
+
+// 仅供同步发送表达式借用；返回视图不保活参数，不能跨语句保存。
+static std::span<const unsigned char> sendBytes(const QByteArray &bytes)
+{
+    return {reinterpret_cast<const unsigned char *>(bytes.constData()), static_cast<std::size_t>(bytes.size())};
+}
+
 int main(int argc,char **argv)
 {
     DmaFixture fixture;
@@ -16,8 +23,8 @@ int main(int argc,char **argv)
         QObject::connect(&handle,&Cdl5DmaHandle::logMessage,&handle,[](const std::string &utf8Message) { const QString s = QString::fromUtf8(utf8Message.data(), qsizetype(utf8Message.size())); ++logs;std::cerr<<s.toStdString()<<'\n'; },Qt::DirectConnection);
         auto params=Cdl5DmaHandle::parameters("/fake/dma");params.memoryDevice="/fake/mem";
         check(handle.open(params)&&connected.tryAcquire(1,2000),"open concrete DMA handle");
-        check(!handle.send(QByteArray("bad")),"bad command rejected");
-        check(handle.send(Cdl5::command(1)),"start command accepted");
+        check(!handle.send(sendBytes(QByteArray("bad"))),"bad command rejected");
+        check(handle.send(sendBytes(Cdl5::command(1))),"start command accepted");
         check(delivered.tryAcquire(1,4000),"full frame delivered");
         handle.close();
         QByteArray combined;
@@ -29,7 +36,7 @@ int main(int argc,char **argv)
         while(started.tryAcquire()) {}
         cancelCase=true;chunks.clear();
         check(handle.open(params)&&connected.tryAcquire(1,2000),"reopen");
-        check(handle.send(Cdl5::command(1))&&started.tryAcquire(1,2000),"capture pending");
+        check(handle.send(sendBytes(Cdl5::command(1)))&&started.tryAcquire(1,2000),"capture pending");
         handle.close();
         check(chunks.empty()&&!handle.isRunning(),"closing pending capture discards and joins");
         cancelCase=false;
@@ -47,7 +54,7 @@ int main(int argc,char **argv)
         },Qt::DirectConnection);
         auto params=Cdl5DmaHandle::parameters("/fake/dma");params.memoryDevice="/fake/mem";
         check(handle.open(params)&&connected.tryAcquire(1,2000),"geometry probe connected");
-        check(handle.send(Cdl5::command(1))&&rejected.tryAcquire(1,2000),"mismatched lane count diagnosed");
+        check(handle.send(sendBytes(Cdl5::command(1)))&&rejected.tryAcquire(1,2000),"mismatched lane count diagnosed");
         handle.close();check(starts==0&&resets==0,"invalid profile does not arm DMA or modify configuration");
     }
     for(auto fail:{Fault::Start,Fault::Wait,Fault::Read,Fault::ShortTransfer}) {
@@ -59,7 +66,7 @@ int main(int argc,char **argv)
         },Qt::DirectConnection);
         auto params=Cdl5DmaHandle::parameters("/fake/dma");params.memoryDevice="/fake/mem";
         check(handle.open(params)&&connected.tryAcquire(1,2000),"error probe connected");
-        check(handle.send(Cdl5::command(1)),"error probe accepted");
+        check(handle.send(sendBytes(Cdl5::command(1))),"error probe accepted");
         check(error.tryAcquire(1,2000),"failure diagnosed");handle.close();
         check(resets==1&&!handle.isRunning()&&regs[0x04/4]==0,"failed transfer released and worker joined");
     }

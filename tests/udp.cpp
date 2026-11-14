@@ -7,6 +7,13 @@
 #include <cstdlib>
 #include <type_traits>
 
+
+// 仅供同步发送表达式借用；返回视图不保活参数，不能跨语句保存。
+static std::span<const unsigned char> sendBytes(const QByteArray &bytes)
+{
+    return {reinterpret_cast<const unsigned char *>(bytes.constData()), static_cast<std::size_t>(bytes.size())};
+}
+
 namespace {
 void check(bool condition, const char *message)
 {
@@ -45,7 +52,7 @@ int main(int argc, char **argv)
     CallbackHandle<PcapHandle> handle([](const QByteArray &, RxTime) {});
     QObject::connect(&handle, &PcapHandle::logMessage, &app,
                      [&](const std::string &) { ++diagnostics; });
-    check(!handle.send(QByteArray("offline")), "unconnected transport rejects send");
+    check(!handle.send(sendBytes(QByteArray("offline"))), "unconnected transport rejects send");
     check(diagnostics == 1, "Handle owns failure diagnostic");
     handle.close();
     handle.close();

@@ -1,3 +1,9 @@
+## 2026-11-14：适配只读发送视图
+
+DMA/UDP 测试适配 Handle 的只读 span 单条发送入口，临时 QByteArray 只在完整发送表达式内借用；生产采集、裁决、重连和关闭保持。
+
+Linux 独立快照构建及 DMA/UDP 测试 3/3 通过；日志 ArchHFNL:~/sendspan-20261114/cdl5Device-*.log。Windows 官邸随主程序增量构建及冒烟通过；未部署 ARM。 本轮不推送。
+
 ## 2026-11-14：停止门依赖接入
 
 HandleCore 停止门改为标准二元信号量后，DMA 采集测试显式包含自己的 QSemaphore 屏障头，不再借用传输基类的间接包含。CDL5 生产代码和 DMA 控制不变；本轮 Linux x86_64 构建/CTest 3/3 通过，不代表 ARM 标准库已经核查。未推送。
