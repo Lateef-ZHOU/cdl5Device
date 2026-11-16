@@ -77,7 +77,7 @@ private:
     }
     bool connSend(std::shared_ptr<DmaConnection>, const std::vector<unsigned char> &) const override { return false; }
     RXRuling onRX(std::span<const unsigned char>, RxTime, std::shared_ptr<DmaConnection>) override { return {}; }
-    TXRuling onTX(std::span<const unsigned char>, std::shared_ptr<DmaConnection>) const override { return {}; }
+    TXRuling onTX(const std::vector<unsigned char> &, std::shared_ptr<DmaConnection>) const override { return {}; }
 };
 }
 

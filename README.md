@@ -1,3 +1,7 @@
+## 2026-11-17：onTX 接入 vector 只读引用（用户定）
+
+onTX 输入统一为 const std::vector<unsigned char>&，同步传参不复制调用方数组；RX 仍用只读 span。DMA 命令校验与 TXRuling 自有字节保持，UDP 继续使用 PcapHandle；适配 DMA 测试替身。 不新增成员状态；使用相邻本地 HandleCore 源码覆盖，远端锁定版本暂不变，不推送。Windows Release CTest 3/3，Linux UDP+DMA 配置 CTest 3/3 通过。 证据见主程序 docs/maintenance/validation.md 本轮记录。
+
 ## 2026-11-14：connSend 引用传输验证
 
 DMA 发送覆盖及测试替身适配 connSend 的 vector 只读引用。Linux Release 与 DMA/协议测试 3/3、Bridge 全端点集成 4/4 通过；Windows 主程序构建与离屏冒烟通过。证据主程序 build/connsend-linux.log 与 ArchHFNL:~/connsend-20261114。未操作板卡，不推送。

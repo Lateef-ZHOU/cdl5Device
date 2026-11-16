@@ -93,14 +93,14 @@ private:
     {
         return {view, RXRuling::Decode, at};
     }
-    TXRuling onTX(std::span<const unsigned char> view, std::shared_ptr<DmaConnection> conn) const override
+    TXRuling onTX(const std::vector<unsigned char> &payload, std::shared_ptr<DmaConnection> conn) const override
     {
-        const auto bytes = QByteArray::fromRawData(reinterpret_cast<const char *>(view.data()), static_cast<qsizetype>(view.size()));
+        const auto bytes = QByteArray::fromRawData(reinterpret_cast<const char *>(payload.data()), static_cast<qsizetype>(payload.size()));
         if (!conn || !Cdl5::decodeCommand(bytes)) {
             Q_EMIT logMessage("CDL5 未连接或采集命令无效");
             return {};
         }
-        return {{view.begin(), view.end()}, TXRuling::Encode};
+        return {{payload.begin(), payload.end()}, TXRuling::Encode};
     }
     void post(int request) const
     {
