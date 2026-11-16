@@ -11,6 +11,7 @@ endfunction()
 if(CDL5_WITH_UDP)
     add_executable(cdl5_udp_probe udp.cpp)
     target_link_libraries(cdl5_udp_probe PRIVATE Lidar::Cdl5Udp)
+    target_include_directories(cdl5_udp_probe PRIVATE "${lidar_handle_core_SOURCE_DIR}/tests/pcap")
     cdl5_probe(cdl5_udp_probe)
     if(WIN32)
         set_tests_properties(cdl5_udp_probe PROPERTIES ENVIRONMENT_MODIFICATION

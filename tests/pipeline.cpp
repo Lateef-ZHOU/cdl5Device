@@ -1,3 +1,4 @@
+#include "PacketFixtures.h"
 #include <Device.h>
 #include "FakePcap.h"
 #include <QCoreApplication>
@@ -28,11 +29,10 @@ int main(int argc, char **argv)
     using C = Cdl5Collector;
     QTemporaryDir output;check(output.isValid(),"temporary output directory");
     FakePcap::reset();
-    bool ok=false;
     PcapParams p;
-    p.host={"fake","fake","fake0",MAC::fromString("02:00:00:00:00:01",ok)};
-    p.deviceMAC=MAC::fromString("02:00:00:00:00:02",ok);
-    p.hostIPv4=IPv4::fromString("192.0.2.1",ok);p.deviceIPv4=IPv4::fromString("192.0.2.2",ok);
+    p.host={"fake","fake","fake0",*PacketProtocol::EthernetHeader::MAC::fromString("02:00:00:00:00:01")};
+    p.deviceMAC=*PacketProtocol::EthernetHeader::MAC::fromString("02:00:00:00:00:02");
+    p.hostIPv4=*PacketProtocol::IPv4Header::Address::fromString("192.0.2.1");p.deviceIPv4=*PacketProtocol::IPv4Header::Address::fromString("192.0.2.2");
     p.hostPort=55200;p.devicePort=55200;
     DeviceT backend(nullptr);
     constexpr auto points = C::Points;
@@ -56,7 +56,7 @@ int main(int argc, char **argv)
     const auto context=*backend.paramsFor(1,std::nullopt,QDir(output.path()),QStringLiteral("probe"),false);
     check(backend.begin(context,[&](std::shared_ptr<const DAQCollector> frame) { completed=bool(frame); },{}),"begin typed collection");
     const auto sent=FakePcap::sent();
-    check(!sent.empty()&&UDPDatagram(sent.front().bytes).bodyView()==Cdl5::command(1),"collector command through Pcap");
+    check(!sent.empty()&&PacketTest::body(sent.front().bytes)==Cdl5::command(1),"collector command through Pcap");
     QByteArray frame((points+1)*32,0);
     qToLittleEndian(Cdl5::FrameMagic,frame.data());qToLittleEndian(Cdl5::FrameFormat,frame.data()+4);
     qToLittleEndian(quint32((Cdl5::Rows<<16)|Cdl5::Columns),frame.data()+8);
@@ -65,7 +65,7 @@ int main(int argc, char **argv)
         qToLittleEndian(std::bit_cast<quint32>(float(c)+1.25f),frame.data()+(i+1)*32+c*4);
     const auto session=FakePcap::last();
     for(qsizetype offset=0;offset<frame.size();offset+=1024)
-        FakePcap::inject(session,UDPDatagram(p.host.macAddress,p.deviceMAC,p.deviceIPv4,p.hostIPv4,
+        FakePcap::inject(session,PacketTest::udp(p.host.macAddress,p.deviceMAC,p.deviceIPv4,p.hostIPv4,
                                            p.devicePort,p.hostPort,frame.mid(offset,1024)));
     until([&] { return completed&&signals==3; });
     // 族落盘：每帧一个 JSON，三路按通道规格顺序、名称写出功率谱。

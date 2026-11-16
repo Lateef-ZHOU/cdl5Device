@@ -1,3 +1,4 @@
+#include "PacketFixtures.h"
 #include <vector>
 #include <string>
 #include "CallbackHandle.h"
@@ -29,15 +30,10 @@ void check(bool condition, const char *message)
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
-    bool ok = false;
-    const auto host = IPv4::fromString("192.0.2.1", ok);
-    check(ok, "test host address");
-    const auto peer = IPv4::fromString("192.0.2.2", ok);
-    check(ok, "test peer address");
-    const auto hostMac = MAC::fromString("02:00:00:00:00:01", ok);
-    check(ok, "test host MAC");
-    const auto peerMac = MAC::fromString("02:00:00:00:00:02", ok);
-    check(ok, "test peer MAC");
+    const auto host = *PacketProtocol::IPv4Header::Address::fromString("192.0.2.1");
+    const auto peer = *PacketProtocol::IPv4Header::Address::fromString("192.0.2.2");
+    const auto hostMac = *PacketProtocol::EthernetHeader::MAC::fromString("02:00:00:00:00:01");
+    const auto peerMac = *PacketProtocol::EthernetHeader::MAC::fromString("02:00:00:00:00:02");
 
     // Opaque byte payloads, including embedded zeroes and the final 32-byte block.
     // This tests transport round-tripping, not FPGA frame parsing or acquisition.
@@ -45,9 +41,9 @@ int main(int argc, char **argv)
         QByteArray payload(size, '\0');
         for (int i = 0; i < size; ++i)
             payload[i] = static_cast<char>(i % 256);
-        const UDPDatagram frame(hostMac, peerMac, peer, host, 5678, 1234, payload);
-        check(kindOf(frame) == FrameKind::UDPDatagram, "Ethernet UDP identified");
-        check(UDPDatagram(frame).bodyView() == payload, "payload preserved without a second envelope");
+        const auto frame = PacketTest::udp(hostMac, peerMac, peer, host, 5678, 1234, payload);
+        check(PacketTest::kind(frame) == PacketProtocol::FrameKind::UDP, "Ethernet UDP identified");
+        check(PacketTest::body(frame) == payload, "payload preserved without a second envelope");
     }
 
     int diagnostics = 0;

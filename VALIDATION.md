@@ -1,3 +1,9 @@
+## 2026-11-17：旧 PcapProtocol 测试迁移
+
+UDP 与流水线测试改用 HandleCore 的测试专用 PacketFixtures，以 PacketProtocol 构建/读取帧，清除旧 MAC/IPv4/UDPDatagram 依赖；保持二进制主体、采集和取消检查。Windows Release 与 CTest 3/3（UDP、Collector、QML 页）通过；Linux UDP+DMA 配置 CTest 3/3 通过，Bridge 的 DMA 转发也通过。Linux 本次没有启用 CDL5_WITH_DEVICE，未运行 pipeline 探针；主程序 Windows 集成构建和 8 秒离屏冒烟通过。未操作采集卡、ARM 或 FPGA。
+
+证据：相邻主程序 build/pcap-vector-packet-cdl5-{build,test}.log、pcap-migration-linux-cdl5Device-{build,test}.log。C++ 无编译警告，Qt 配置阶段保留可选包与私有模块提示。不推送。
+
 ## 2026-11-14：vector 引用发送验证
 
 测试命令适配 const vector&，生产 DMA 逻辑不改。Linux Release、公开头及 CTest 3/3；Bridge 全端点构建及 CTest 4/4 通过。证据 ArchHFNL:~/vectorsend-20261114 和主程序 build/vectorsend-linux.log。未更新板卡、不推送。
