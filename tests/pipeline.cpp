@@ -30,7 +30,8 @@ int main(int argc, char **argv)
     QTemporaryDir output;check(output.isValid(),"temporary output directory");
     FakePcap::reset();
     PcapParams p;
-    p.host={"fake","fake","fake0",*PacketProtocol::EthernetHeader::MAC::fromString("02:00:00:00:00:01")};
+    p.pcapDeviceName="fake0";
+    p.hostMAC=*PacketProtocol::EthernetHeader::MAC::fromString("02:00:00:00:00:01");
     p.deviceMAC=*PacketProtocol::EthernetHeader::MAC::fromString("02:00:00:00:00:02");
     p.hostIPv4=*PacketProtocol::IPv4Header::Address::fromString("192.0.2.1");p.deviceIPv4=*PacketProtocol::IPv4Header::Address::fromString("192.0.2.2");
     p.hostPort=55200;p.devicePort=55200;
@@ -65,7 +66,7 @@ int main(int argc, char **argv)
         qToLittleEndian(std::bit_cast<quint32>(float(c)+1.25f),frame.data()+(i+1)*32+c*4);
     const auto session=FakePcap::last();
     for(qsizetype offset=0;offset<frame.size();offset+=1024)
-        FakePcap::inject(session,PacketTest::udp(p.host.macAddress,p.deviceMAC,p.deviceIPv4,p.hostIPv4,
+        FakePcap::inject(session,PacketTest::udp(p.hostMAC,p.deviceMAC,p.deviceIPv4,p.hostIPv4,
                                            p.devicePort,p.hostPort,frame.mid(offset,1024)));
     until([&] { return completed&&signals==3; });
     // 族落盘：每帧一个 JSON，三路按通道规格顺序、名称写出功率谱。

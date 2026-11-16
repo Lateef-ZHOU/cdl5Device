@@ -1,3 +1,9 @@
+## 2026-11-17：PcapParams 流水线夹具适配
+
+pipeline 夹具改为直接填写 pcapDeviceName / hostMAC，并用 hostMAC 构造模拟入站包；生产采集、算法和取消链未改。Windows/MSVC build-1109 Release 增量构建、公开头编译及 CTest 3/3 通过（2.71 秒，UDP/Collector/QML 页面）；Linux/GCC UDP+DMA 配置 3/3 通过（0.04 秒）。两端编译/链接无警告或错误。
+
+本轮 Linux 未启用完整 Device/QML，pipeline 专项未运行，不将夹具适配记作流水线实测。证据：主程序 build/pcap-vector-params-cdl5-{build,test}.log、params-linux-cdl5Device-{build,test}.log。主程序官邸构参由 FamilyCore 表单统一适配；不操作采集卡、ARM 或 FPGA，不推送。
+
 ## 2026-11-17：旧 PcapProtocol 测试迁移
 
 UDP 与流水线测试改用 HandleCore 的测试专用 PacketFixtures，以 PacketProtocol 构建/读取帧，清除旧 MAC/IPv4/UDPDatagram 依赖；保持二进制主体、采集和取消检查。Windows Release 与 CTest 3/3（UDP、Collector、QML 页）通过；Linux UDP+DMA 配置 CTest 3/3 通过，Bridge 的 DMA 转发也通过。Linux 本次没有启用 CDL5_WITH_DEVICE，未运行 pipeline 探针；主程序 Windows 集成构建和 8 秒离屏冒烟通过。未操作采集卡、ARM 或 FPGA。
