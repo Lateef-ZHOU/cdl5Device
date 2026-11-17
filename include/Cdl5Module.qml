@@ -157,8 +157,8 @@ ModulePage {
         acquisition: root
     }
     objectName: "Cdl5Module"
-    readonly property string name: internals.device.displayName
-    readonly property string subtitle: internals.device.subtitle
+    readonly property string name: String(internals.device.displayName)
+    readonly property string subtitle: String(internals.device.subtitle)
     // 借用公共只读资源接口（即设备对象本身），不另存状态。
     readonly property var deviceState: internals.device
 
