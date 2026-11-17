@@ -1,10 +1,10 @@
 #pragma once
+#include <vector>
 #include <cstring>
 #include <memory>
 #include <optional>
 #include <utility>
 #include <QString>
-#include <QVector>
 #include <DAQFamily/DAQCollector.h>
 #include "Cdl5Protocol.h"
 #include "Configuration.h"
@@ -43,8 +43,16 @@ public:
     explicit Cdl5Collector(const DAQParameters &parameters)
         : TypedDAQCollector(parameters) {}
     int timeoutMs() const override { return (parameters.accumSec + 5) * 1000; }
-    QVector<QByteArray> buildStart() const override { return {Cdl5::command(static_cast<quint32>(parameters.accumSec))}; }
-    QVector<QByteArray> buildStop() const override { return {Cdl5::command(0)}; }
+    std::vector<std::vector<unsigned char>> buildStart() const override
+    {
+        const auto command = Cdl5::command(static_cast<quint32>(parameters.accumSec));
+        return {{command.cbegin(), command.cend()}};
+    }
+    std::vector<std::vector<unsigned char>> buildStop() const override
+    {
+        const auto command = Cdl5::command(0);
+        return {{command.cbegin(), command.cend()}};
+    }
 
 private:
 

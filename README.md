@@ -1,3 +1,7 @@
+## 2026-11-17：Collector 命令集合使用 vector（用户定）
+
+Collector::buildStart/buildStop 及设备 stopCommands 按值返回 std::vector<std::vector<unsigned char>>，与 DeviceCore 直接发送的类型一致。沿用 Cdl5::command 编码，在集合工厂出口取得自有字节；累积秒数和停止命令 0 的内容、UDP/DMA 协议、收包与取消逻辑保持。未改底层单条编码器或增加缓存。验证见 VALIDATION.md，本轮不推送。
+
 ## 2026-11-17：onTX 接入 vector 只读引用（用户定）
 
 onTX 输入统一为 const std::vector<unsigned char>&，同步传参不复制调用方数组；RX 仍用只读 span。DMA 命令校验与 TXRuling 自有字节保持，UDP 继续使用 PcapHandle；适配 DMA 测试替身。 不新增成员状态；使用相邻本地 HandleCore 源码覆盖，远端锁定版本暂不变，不推送。Windows Release CTest 3/3，Linux UDP+DMA 配置 CTest 3/3 通过。 证据见主程序 docs/maintenance/validation.md 本轮记录。

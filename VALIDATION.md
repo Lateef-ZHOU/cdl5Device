@@ -1,3 +1,9 @@
+## 2026-11-17：Collector 启动与停止命令集合
+
+buildStart/buildStop 与型号 stopCommands 返回 vector<vector<unsigned char>>，原 Cdl5::command 编码及累积/停止值保持。Windows/MSVC build-1109 Release 增量构建、公开头编译和 CTest 3/3 通过（2.75 秒，UDP、Collector、页面）；构建日志无 C++ 编译或链接警告、错误。主程序集成 Release 构建、生命周期 8/8 和 8 秒离屏冒烟通过，主程序 CMake 配置的本模块 qmllint 退出 0。
+
+证据：build-1109/collector-vector-{configure,build,test}.log；主程序 build/collector-vector-build.log、build/virtual-lifecycle/collector-vector-{build,test}.log、build/collector-vector-qmllint-direct.{log,json}、build/collector-vector-smoke.json。沿用本地源码覆盖，未更改远端锁定提交。本轮未运行 Linux/ARM、DMA 或实物测试，未操作板卡、镜像或 FPGA；暂不推送。
+
 ## 2026-11-17：PcapParams 流水线夹具适配
 
 pipeline 夹具改为直接填写 pcapDeviceName / hostMAC，并用 hostMAC 构造模拟入站包；生产采集、算法和取消链未改。Windows/MSVC build-1109 Release 增量构建、公开头编译及 CTest 3/3 通过（2.71 秒，UDP/Collector/QML 页面）；Linux/GCC UDP+DMA 配置 3/3 通过（0.04 秒）。两端编译/链接无警告或错误。
