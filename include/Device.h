@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include <format>
 #include "WindBarbItem.h"
 #include "SurfaceItem.h"
@@ -41,8 +42,8 @@ class Cdl5Device final
     QML_ELEMENT
     QML_ATTACHED(Cdl5Device)
     QML_UNCREATABLE("由 Cdl5Module 持有")
-    Q_PROPERTY(QString displayName MEMBER displayName CONSTANT)
-    Q_PROPERTY(QString subtitle MEMBER subtitle CONSTANT)
+    Q_PROPERTY(std::string displayName MEMBER displayName CONSTANT)
+    Q_PROPERTY(std::string subtitle MEMBER subtitle CONSTANT)
     Q_PROPERTY(bool isOpen READ isOpen)
     Q_PROPERTY(QVariant holder READ qmlHolder)
     Q_PROPERTY(QVariantMap connectionParameters READ connectionParameters CONSTANT)
@@ -51,7 +52,7 @@ class Cdl5Device final
 public:
     static Cdl5Device *qmlAttachedProperties(QObject *owner) { return new Cdl5Device(owner); }
     explicit Cdl5Device(QObject *parent)
-        : Base(QStringLiteral("采集·国实CDL5"), QStringLiteral("%1 kHz").arg(Cdl5::RateHz / 1000), parent)
+        : Base("采集·国实CDL5", std::format("{} kHz", Cdl5::RateHz / 1000), parent)
     {
         setObjectName(QStringLiteral("Cdl5%1K").arg(Cdl5::RateHz / 1000));
     }
