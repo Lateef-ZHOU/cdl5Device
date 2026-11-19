@@ -3,7 +3,9 @@
 #include <cstring>
 #include <memory>
 #include <optional>
+#include <span>
 #include <utility>
+#include <QByteArray>
 #include <QString>
 #include <DAQFamily/DAQCollector.h>
 #include "Cdl5Protocol.h"
@@ -57,11 +59,12 @@ public:
 
 private:
 
-    std::optional<Frame> assemble(QByteArrayView bytes, RxTime at) override
+    std::optional<Frame> assemble(std::span<const unsigned char> bytes, RxTime at) override
     {
         // DMA emits at most ChunkBytes; receive offload can coalesce several chunks.
         // Validate record alignment and remaining frame capacity, not the send chunk size.
-        if (bytes.isEmpty() || bytes.size() % Cdl5::RecordBytes != 0 || bytes.size() > FrameBytes - received_)
+        if (bytes.empty() || bytes.size() % Cdl5::RecordBytes != 0
+            || bytes.size() > static_cast<std::size_t>(FrameBytes - received_))
             return std::nullopt;
         const bool first = received_ == 0;
         // One header per complete frame, not one per UDP datagram. The header record stays in the frame.
@@ -73,8 +76,8 @@ private:
             return std::nullopt;
         if (first)
             frameTime_ = at;
-        std::memcpy(raw_.data() + received_, bytes.data(), static_cast<std::size_t>(bytes.size()));
-        received_ += bytes.size();
+        std::memcpy(raw_.data() + received_, bytes.data(), bytes.size());
+        received_ += static_cast<qsizetype>(bytes.size());
         if (received_ != FrameBytes)
             return std::nullopt;
         auto channels = decode();

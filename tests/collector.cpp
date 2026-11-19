@@ -10,6 +10,10 @@
 #include <iostream>
 #include <type_traits>
 static constexpr const char *channelNames[] = {"ADC0_6m", "ADC0_15m", "ADC0_30m"};
+static std::span<const unsigned char> rxBytes(const QByteArray &bytes)
+{
+    return {reinterpret_cast<const unsigned char *>(bytes.constData()), static_cast<std::size_t>(bytes.size())};
+}
 void check(bool value, const char *reason)
 { if (!value) { std::cerr << reason << '\n'; std::exit(1); } }
 // 收集器测试不经设备：自行派生通行证造参数（通行证只防误用，不防刻意派生）。
@@ -54,21 +58,21 @@ void verify()
     for (qsizetype i = 0; i < C::Points; ++i)
         for (int c = 0; c < 3; ++c)
             qToLittleEndian(std::bit_cast<quint32>(float(i) + 0.25f * (c + 1)), frame.data() + (i + 1) * 32 + c * 4);
-    check(!result->feed(QByteArray(31, 0), stamp), "unaligned packet ignored");
+    check(!result->feed(rxBytes(QByteArray(31, 0)), stamp), "unaligned packet ignored");
     auto wrong = frame.first(1024);
     qToLittleEndian(quint32(0), wrong.data() + 8);
-    check(!result->feed(wrong, stamp), "wrong dimensions rejected");
+    check(!result->feed(rxBytes(wrong), stamp), "wrong dimensions rejected");
     wrong = frame.first(1024);
     qToLittleEndian(quint32(0x05040707), wrong.data() + 4);
-    check(!result->feed(wrong, stamp), "wrong lane format rejected");
+    check(!result->feed(rxBytes(wrong), stamp), "wrong lane format rejected");
     wrong = frame.first(1024);
     qToLittleEndian(quint32(0), wrong.data() + 16);
-    check(!result->feed(wrong, stamp), "wrong profile rejected");
+    check(!result->feed(rxBytes(wrong), stamp), "wrong profile rejected");
     int packets = 0;
     for (qsizetype offset = 0; offset < frame.size(); offset += 1024) {
         const auto packet = frame.mid(offset, 1024);
         const bool last = offset + packet.size() == frame.size();
-        check(result->feed(packet, stamp) == last, "complete only at exact full frame size");
+        check(result->feed(rxBytes(packet), stamp) == last, "complete only at exact full frame size");
         ++packets;
     }
     check(packets == 1801, "1024-byte chunks and 32-byte tail");
@@ -93,35 +97,35 @@ void verify()
         (verifyChannel(channel), ...);
     }, result->channels());
     check(!retry->settled() && !prototype->settled(), "independent receive areas");
-    check(result->feed(QByteArray(1024, 0), stamp) && view(*result)[0].spectrum[0] == .25, "settled cannot be rewritten");
+    check(result->feed(rxBytes(QByteArray(1024, 0)), stamp) && view(*result)[0].spectrum[0] == .25, "settled cannot be rewritten");
     auto missing = std::make_shared<C>(prototype->parameters);
     for (qsizetype offset = 0; offset < frame.size() - 32; offset += 1024)
-        missing->feed(frame.mid(offset, 1024), stamp);
+        missing->feed(rxBytes(frame.mid(offset, 1024)), stamp);
     check(!missing->settled(), "lost tail remains incomplete for watchdog retry");
     // 起始 bin 是通道规格常量：帧头不符即拒收该帧，后续数据包也凑不成帧。
     QByteArray wrongBin = frame;
     qToLittleEndian(quint32((10000 << 16) | (Cdl5::Profile << 12) | (Cdl5::FirstBin + 1)), wrongBin.data() + 16);
     auto mismatched = std::make_shared<C>(prototype->parameters);
     for (qsizetype offset = 0; offset < wrongBin.size(); offset += 1024)
-        mismatched->feed(wrongBin.mid(offset, 1024), stamp);
+        mismatched->feed(rxBytes(wrongBin.mid(offset, 1024)), stamp);
     check(!mismatched->settled(), "frame with a different first bin accepted");
     auto splitHeader = std::make_shared<C>(prototype->parameters);
-    check(!splitHeader->feed(frame.first(32), stamp), "header-only packet accepted");
+    check(!splitHeader->feed(rxBytes(frame.first(32)), stamp), "header-only packet accepted");
     for (qsizetype offset = 32; offset < frame.size(); offset += 1024)
-        splitHeader->feed(frame.mid(offset, 1024), stamp);
+        splitHeader->feed(rxBytes(frame.mid(offset, 1024)), stamp);
     check(splitHeader->settled() && std::ranges::equal(view(*splitHeader)[0].spectrum, view(*result)[0].spectrum),
           "header-only packet not confused with no header");
 
     // Npcap can receive seven original 1024-byte chunks as one 7168-byte batch.
     auto coalesced = std::make_shared<C>(prototype->parameters);
-    check(!coalesced->feed(frame.first(7169), stamp) && !coalesced->settled(),
+    check(!coalesced->feed(rxBytes(frame.first(7169)), stamp) && !coalesced->settled(),
           "coalesced but unaligned input rejected without consuming header");
     for (qsizetype offset = 0; offset < frame.size() - 32; offset += 7168) {
         const auto batch = frame.mid(offset, std::min<qsizetype>(7168, frame.size() - 32 - offset));
-        check(!coalesced->feed(batch, stamp), "coalesced batches still require final record");
+        check(!coalesced->feed(rxBytes(batch), stamp), "coalesced batches still require final record");
     }
-    check(!coalesced->feed(QByteArray(64, 0), stamp), "oversized tail rejected without partial append");
-    check(coalesced->feed(frame.last(32), stamp), "coalesced frame completes on actual tail");
+    check(!coalesced->feed(rxBytes(QByteArray(64, 0)), stamp), "oversized tail rejected without partial append");
+    check(coalesced->feed(rxBytes(frame.last(32)), stamp), "coalesced frame completes on actual tail");
     check(std::ranges::equal(view(*coalesced), view(*result), [](const auto &l, const auto &r) { return std::ranges::equal(l.spectrum, r.spectrum); })
           && coalesced->frameTime() == stamp,
           "coalescing preserves every ADC value and first arrival time");
@@ -171,7 +175,7 @@ int main(int argc, char **argv)
         QFile file(QString::fromLocal8Bit(argv[i]));
         check(file.open(QIODevice::ReadOnly), "open captured frame");
         const auto collector = std::make_shared<Cdl5Collector>(testParameters(1));
-        while (!file.atEnd()) collector->feed(file.read(7168), {});
+        while (!file.atEnd()) collector->feed(rxBytes(file.read(7168)), {});
         check(collector->settled() && cdl5Params[0].frequencyStartMHz == 15 * Cdl5::BinMHz,
               "complete captured spectrum and ADC0 header metadata");
         for (int channel = 0; channel < Cdl5::Channels; ++channel) {

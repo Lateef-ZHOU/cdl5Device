@@ -14,7 +14,7 @@ inline constexpr quint32 FrameMagic = 0x324c4443;
 inline constexpr quint32 CommandMagic = 0x354c4443; // CDL5, little endian
 static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559);
 
-inline quint32 word(const char *p) { return qFromLittleEndian<quint32>(p); }
+inline quint32 word(const void *p) { return qFromLittleEndian<quint32>(p); }
 inline double power(const char *p) { return static_cast<double>(std::bit_cast<float>(word(p))); }
 
 // The same 8-byte command goes through UDP and the bridge unchanged. Zero cancels.
