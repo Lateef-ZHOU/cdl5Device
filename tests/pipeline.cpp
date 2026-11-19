@@ -10,7 +10,7 @@
 #include <QFile>
 #include <iostream>
 #include <cstdlib>
-static constexpr const char *channelNames[] = {Cdl5ChannelSpec<0>::name, Cdl5ChannelSpec<1>::name, Cdl5ChannelSpec<2>::name};
+static constexpr const char *channelNames[] = {"ADC0_6m", "ADC0_15m", "ADC0_30m"};
 
 void check(bool condition,const char *message)
 { if(!condition) { std::cerr<<message<<'\n';std::exit(1); } }

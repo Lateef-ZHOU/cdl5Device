@@ -85,11 +85,11 @@ public:
     Q_INVOKABLE QVariantMap chartParameters(int channel = 0) const
     {
         if (channel < 0 || channel >= Cdl5::Channels) return {};
-        const int step = Cdl5::GateSpacingM[channel];
-        return {{"rows", Cdl5::Rows}, {"columns", Cdl5::Columns}, {"channels", Cdl5::Channels},
-                {"channelName", QStringLiteral("%1m").arg(step)},
-                {"rangeStart", Cdl5::RangeStartM}, {"gateSpacing", step},
-                {"freqStart", Cdl5::FirstBin * Cdl5::BinMHz}, {"freqStep", Cdl5::BinMHz},
+        const auto &params = cdl5Params[static_cast<std::size_t>(channel)];
+        return {{"rows", params.rangeGateCount}, {"columns", params.frequencyBinCount}, {"channels", Cdl5::Channels},
+                {"channelName", QStringLiteral("%1m").arg(params.rangeStepM)},
+                {"rangeStart", params.rangeStartM}, {"gateSpacing", params.rangeStepM},
+                {"freqStart", params.frequencyStartMHz}, {"freqStep", params.frequencyStepMHz},
                 {"powerMax", static_cast<double>(std::numeric_limits<float>::max())}};
     }
 Q_SIGNALS:

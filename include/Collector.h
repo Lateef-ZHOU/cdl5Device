@@ -20,21 +20,22 @@ inline constexpr int FirstBin = 15;
 } // namespace Cdl5
 
 // 三路规格：门宽不同，其余共用（ADC0 同一零风速参考、波长与频率轴）。
-template <int Index>
-struct Cdl5ChannelSpec
-{
-    static_assert(Cdl5::GateSpacingM == std::array<int, Cdl5::Channels>{6, 15, 30}, "通道名须与门宽一致");
-    static constexpr const char *name = Index == 0 ? "ADC0_6m" : Index == 1 ? "ADC0_15m" : "ADC0_30m";
-    static constexpr double wavelengthM = Cdl5::WavelengthM, zeroWindMHz = Cdl5::ZeroWindReferenceMHz;
-    static constexpr int rangeGateCount = Cdl5::Rows, frequencyBinCount = Cdl5::Columns;
-    static constexpr double rangeStartM = Cdl5::RangeStartM, rangeStepM = Cdl5::GateSpacingM[Index];
-    static constexpr double frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, frequencyStepMHz = Cdl5::BinMHz;
-};
+static_assert(Cdl5::GateSpacingM == std::array{6, 15, 30}, "通道名须与门宽一致");
+inline constexpr auto cdl5Params = [] {
+    std::array<DAQParams, Cdl5::Channels> channels{};
+    for (std::size_t i = 0; i < channels.size(); ++i) {
+        channels[i] = {.wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Cdl5::ZeroWindReferenceMHz,
+            .rangeStartM = Cdl5::RangeStartM, .rangeStepM = static_cast<double>(Cdl5::GateSpacingM[i]),
+            .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
+            .rangeGateCount = Cdl5::Rows, .frequencyBinCount = Cdl5::Columns};
+    }
+    return channels;
+}();
 
 // 一帧 = 一条帧头记录 + Rows × Columns 条数据记录，每条 32 字节、含三路 FP32。收包只校验帧头与记录对齐并按序放置字节；
 // 凑齐后解析：三路交错拆成各自的功率谱，轴与系数取各路规格。
 class Cdl5Collector final
-    : public TypedDAQCollector<DAQChannel<Cdl5ChannelSpec<0>>, DAQChannel<Cdl5ChannelSpec<1>>, DAQChannel<Cdl5ChannelSpec<2>>>
+    : public TypedDAQCollector<DAQChannel<cdl5Params[0]>, DAQChannel<cdl5Params[1]>, DAQChannel<cdl5Params[2]>>
 {
 public:
     static constexpr qsizetype Points = Cdl5::Rows * Cdl5::Columns;
@@ -85,18 +86,18 @@ private:
     Frame decode() const
     {
         const char *const data = raw_.constData();
-        auto six = std::make_unique<Spectrum<Cdl5ChannelSpec<0>>>();
-        auto fifteen = std::make_unique<Spectrum<Cdl5ChannelSpec<1>>>();
-        auto thirty = std::make_unique<Spectrum<Cdl5ChannelSpec<2>>>();
+        auto six = std::make_unique<Spectrum<cdl5Params[0]>>();
+        auto fifteen = std::make_unique<Spectrum<cdl5Params[1]>>();
+        auto thirty = std::make_unique<Spectrum<cdl5Params[2]>>();
         for (qsizetype i = 0; i < Points; ++i) {
             const char *record = data + (i + 1) * Cdl5::RecordBytes;
             (*six)[i] = Cdl5::power(record);
             (*fifteen)[i] = Cdl5::power(record + 4);
             (*thirty)[i] = Cdl5::power(record + 8);
         }
-        return {DAQChannel<Cdl5ChannelSpec<0>>(std::move(six)),
-                DAQChannel<Cdl5ChannelSpec<1>>(std::move(fifteen)),
-                DAQChannel<Cdl5ChannelSpec<2>>(std::move(thirty))};
+        return {DAQChannel<cdl5Params[0]>(std::move(six), "ADC0_6m"),
+                DAQChannel<cdl5Params[1]>(std::move(fifteen), "ADC0_15m"),
+                DAQChannel<cdl5Params[2]>(std::move(thirty), "ADC0_30m")};
     }
 
     QByteArray raw_{FrameBytes, Qt::Uninitialized}; // 原样帧（含帧头记录）；解析后释放

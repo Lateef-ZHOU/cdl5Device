@@ -9,7 +9,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <type_traits>
-static constexpr const char *channelNames[] = {Cdl5ChannelSpec<0>::name, Cdl5ChannelSpec<1>::name, Cdl5ChannelSpec<2>::name};
+static constexpr const char *channelNames[] = {"ADC0_6m", "ADC0_15m", "ADC0_30m"};
 void check(bool value, const char *reason)
 { if (!value) { std::cerr << reason << '\n'; std::exit(1); } }
 // 收集器测试不经设备：自行派生通行证造参数（通行证只防误用，不防刻意派生）。
@@ -17,13 +17,13 @@ struct TestKey : DAQParamsKey { TestKey() {} };
 DAQParameters testParameters(const int accumSec) { return DAQParameters(TestKey(), accumSec, std::nullopt, std::nullopt, {}, false); }
 // 一门 × 128 频点的测试规格：起始 bin 15、门宽 6 m，零风速参考由模板实参给出。
 template <double Zero>
-struct PeakSpec
-{
-    static constexpr const char *name = "";
-    static constexpr double wavelengthM = Cdl5::WavelengthM, zeroWindMHz = Zero;
-    static constexpr int rangeGateCount = 1, frequencyBinCount = 128;
-    static constexpr double rangeStartM = 0, rangeStepM = 6, frequencyStartMHz = 15 * Cdl5::BinMHz, frequencyStepMHz = Cdl5::BinMHz;
-};
+inline constexpr auto PeakSpec = [] {
+    auto params = cdl5Params[0];
+    params.zeroWindMHz = Zero;
+    params.rangeGateCount = 1;
+    params.frequencyBinCount = 128;
+    return params;
+}();
 // 测试只借用数值区做逐字节解码对照，不创建动态传输帧。
 struct ChannelView {
     std::span<const double> spectrum, radialWind, cnr;
@@ -81,12 +81,12 @@ void verify()
     int index = 0;
     std::apply([&](const auto &...channel) {
         const auto verifyChannel = [&](const auto &c) {
-            using S = std::remove_cvref_t<decltype(c)>;
-            check(QString::fromUtf8(S::name) == QString::fromUtf8(channelNames[index])
-                && S::rangeGateCount == Cdl5::Rows && S::frequencyBinCount == Cdl5::Columns
-                && S::frequencyStartMHz == 15 * Cdl5::BinMHz && S::frequencyStepMHz == Cdl5::BinMHz
-                && S::rangeStartM == 0 && S::rangeStepM == Cdl5::GateSpacingM[index]
-                && S::zeroWindMHz == Cdl5::ZeroWindReferenceMHz, "static channel specification");
+            constexpr auto params = std::remove_cvref_t<decltype(*c.spectrum)>::params;
+            check(QString::fromUtf8(c.name) == QString::fromUtf8(channelNames[index])
+                && params.rangeGateCount == Cdl5::Rows && params.frequencyBinCount == Cdl5::Columns
+                && params.frequencyStartMHz == 15 * Cdl5::BinMHz && params.frequencyStepMHz == Cdl5::BinMHz
+                && params.rangeStartM == 0 && params.rangeStepM == Cdl5::GateSpacingM[index]
+                && params.zeroWindMHz == Cdl5::ZeroWindReferenceMHz, "static channel specification");
             check(c.cnr->size() == Cdl5::Rows, "processing ran on completion");
             ++index;
         };
@@ -138,14 +138,14 @@ int main(int argc, char **argv)
     static_assert(Cdl5::ZeroWindReferenceMHz == 80.0, "zero-wind reference is a fixed model constant");
     constexpr std::array steps{6, 15, 30};
     const auto verifyProfile = [&]<int channel>() {
-        using Spec = Cdl5ChannelSpec<channel>;
-        std::array<WindProfile::Input<Spec>, 4> grid;
+        constexpr auto params = cdl5Params[channel];
+        std::array<WindProfile::Input<params>, 4> grid;
         for (int i = 0; i < 4; ++i) {
-            auto speeds = std::make_shared<RadialWind<Spec>>();
+            auto speeds = std::make_shared<RadialWind<params>>();
             std::fill(speeds->begin(), speeds->end(), 1.0);
             grid[i] = {WorldModel(i * 90.0, 30.0), std::move(speeds)};
         }
-        const auto profile = WindProfile::Calc<Cdl5ChannelSpec<channel>>(grid, RxTime{});
+        const auto profile = WindProfile::Calc<params>(grid, RxTime{});
         check(profile && profile->size() == 240, "separate wind profile for each grid");
         for (int gate = 0; gate < 240; ++gate)
             check(std::abs((profile->heightStartM() + gate * profile->heightStepM()) - gate * steps[channel] / 2.0) < 1e-9,
@@ -172,7 +172,7 @@ int main(int argc, char **argv)
         check(file.open(QIODevice::ReadOnly), "open captured frame");
         const auto collector = std::make_shared<Cdl5Collector>(testParameters(1));
         while (!file.atEnd()) collector->feed(file.read(7168), {});
-        check(collector->settled() && Cdl5ChannelSpec<0>::frequencyStartMHz == 15 * Cdl5::BinMHz,
+        check(collector->settled() && cdl5Params[0].frequencyStartMHz == 15 * Cdl5::BinMHz,
               "complete captured spectrum and ADC0 header metadata");
         for (int channel = 0; channel < Cdl5::Channels; ++channel) {
             const auto &measured = view(*collector)[channel];
@@ -180,7 +180,7 @@ int main(int argc, char **argv)
                   && std::ranges::any_of(measured.cnr, [](double v) { return std::isfinite(v); }),
                   "real spectrum produces CNR on completion");
             std::cout << "Replay " << channelNames[channel]
-                      << ": " << Cdl5::Rows << " gates, first bin " << Cdl5ChannelSpec<0>::frequencyStartMHz / Cdl5::BinMHz << ", range "
+                      << ": " << Cdl5::Rows << " gates, first bin " << cdl5Params[0].frequencyStartMHz / Cdl5::BinMHz << ", range "
                       << Cdl5::RangeStartM << ".." << (Cdl5::RangeStartM + (Cdl5::Rows - 1) * Cdl5::GateSpacingM[channel]) << " m\n";
         }
     }
