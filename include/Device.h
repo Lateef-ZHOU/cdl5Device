@@ -1,4 +1,5 @@
 #pragma once
+#include <filesystem>
 #include <vector>
 #include <string>
 #include <format>
@@ -67,7 +68,7 @@ public:
     }
     // 型号判据：累积时间须在 1~MaxAccumSeconds 秒内，越界记录原因并返回空；不造 Collector、不发令。
     [[nodiscard]] std::optional<DAQParameters> paramsFor(int accumSec, std::optional<WorldModel> pose,
-        std::optional<QDir> saveRoot, std::string sessionDir, bool sync) const override
+        std::optional<std::filesystem::path> saveRoot, std::string sessionDir, bool sync) const override
     {
         if (accumSec < 1 || accumSec > Cdl5::MaxAccumSeconds)
         {
