@@ -1,3 +1,9 @@
+## 2026-11-20：页面测试轴配置改用 SurfaceGrid
+
+smoke 测试中的功率谱初始轴检查从 `LinearArray2D<double>` 改为 ChartCore 的 `SurfaceGrid`，与 Algorithm 删除 `LinearArray.h` 后的类型迁移一致。断言值与测试行为不变。
+
+验证：build-1109 Release 零警告，CTest 3/3。
+
 ## 2026-11-17：Collector 命令集合使用 vector（用户定）
 
 Collector::buildStart/buildStop 及设备 stopCommands 按值返回 std::vector<std::vector<unsigned char>>，与 DeviceCore 直接发送的类型一致。沿用 Cdl5::command 编码，在集合工厂出口取得自有字节；累积秒数和停止命令 0 的内容、UDP/DMA 协议、收包与取消逻辑保持。未改底层单条编码器或增加缓存。验证见 VALIDATION.md，本轮不推送。

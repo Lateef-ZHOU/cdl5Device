@@ -74,7 +74,7 @@ int main(int argc, char **argv)
                 if (!surfaceItem) return 14;
                 // 首帧前的初始轴：斜距按本路门宽，频率按默认起始 bin 15。
                 const auto grid = surfaceItem->configuration();
-                const LinearArray2D<double> axesGrid(grid["rows"].toInt(), grid["columns"].toInt(), grid["rowStart"].toDouble(),
+                const SurfaceGrid axesGrid(grid["rows"].toInt(), grid["columns"].toInt(), grid["rowStart"].toDouble(),
                     grid["rowStep"].toDouble(), grid["columnStart"].toDouble(), grid["columnStep"].toDouble());
                 const SurfaceAxes::Projection projection(SurfaceCamera{}, QSizeF(800, 600));
                 const auto axes = SurfaceAxes::makeScene(projection, axesGrid, 0, 1, app.font());
