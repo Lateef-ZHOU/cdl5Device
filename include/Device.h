@@ -169,6 +169,22 @@ public:
     { appendColumn(std::get<2>(profiles)); }
 };
 
+// 末端仅提供 Qt 入口；历史和绘制由 ChartCore 的模板实现。
+class Cdl5SixtyWindBarb
+#ifdef Q_MOC_RUN
+    : public WindBarbChart
+#else
+    : public WindBarbItem<typename std::tuple_element_t<3, Cdl5Profiles>::element_type>
+#endif
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5SixtyWindBarb(QQuickItem *parent = nullptr) : WindBarbItem(parent) {}
+    Q_INVOKABLE void appendProfiles(const Cdl5Profiles &profiles)
+    { appendColumn(std::get<3>(profiles)); }
+};
+
 // 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
 class Cdl5SixSpectrum : public SurfaceItem
 {
@@ -292,5 +308,47 @@ public:
     {
         if (!channels) return;
         setCNR(std::get<2>(*channels).cnr);
+    }
+};
+
+// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
+class Cdl5SixtySpectrum : public SurfaceItem
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5SixtySpectrum(QQuickItem *parent = nullptr) : SurfaceItem(parent) {}
+    Q_INVOKABLE bool setData(const Cdl5Channels &channels, double low, double high)
+    {
+        if (!channels) return false;
+        return setSpectrum(std::get<3>(*channels).spectrum, low, high);
+    }
+};
+
+// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
+class Cdl5SixtyRadialWind : public Wind2DItem
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5SixtyRadialWind(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
+    Q_INVOKABLE void setData(const Cdl5Channels &channels)
+    {
+        if (!channels) return;
+        setRadialWind(std::get<3>(*channels).radialWind);
+    }
+};
+
+// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
+class Cdl5SixtyCNR : public Wind2DItem
+{
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    explicit Cdl5SixtyCNR(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
+    Q_INVOKABLE void setData(const Cdl5Channels &channels)
+    {
+        if (!channels) return;
+        setCNR(std::get<3>(*channels).cnr);
     }
 };

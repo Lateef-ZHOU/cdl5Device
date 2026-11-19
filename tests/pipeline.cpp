@@ -10,7 +10,7 @@
 #include <QFile>
 #include <iostream>
 #include <cstdlib>
-static constexpr const char *channelNames[] = {"ADC0_6m", "ADC0_15m", "ADC0_30m"};
+static constexpr const char *channelNames[] = {"ADC0_6m", "ADC0_15m", "ADC0_30m", "ADC0_60m"};
 
 void check(bool condition,const char *message)
 { if(!condition) { std::cerr<<message<<'\n';std::exit(1); } }
@@ -47,7 +47,7 @@ int main(int argc, char **argv)
             const auto verify = [&](const auto &value) {
                 check(static_cast<qsizetype>(value.spectrum->size()) == points
                     && (*value.spectrum)[0] == index + 1.25 && (*value.spectrum)[points - 1] == index + 1.25,
-                    "three independent static spectra");
+                    "independent static spectra");
                 ++index; ++signals;
             };
             (verify(channel), ...);
@@ -62,14 +62,14 @@ int main(int argc, char **argv)
     qToLittleEndian(Cdl5::FrameMagic,frame.data());qToLittleEndian(Cdl5::FrameFormat,frame.data()+4);
     qToLittleEndian(quint32((Cdl5::Rows<<16)|Cdl5::Columns),frame.data()+8);
     qToLittleEndian(quint32((Cdl5::Profile << 12) | 15),frame.data()+16);
-    for(qsizetype i=0;i<points;++i) for(int c=0;c<3;++c)
+    for(qsizetype i=0;i<points;++i) for(int c=0;c<Cdl5::Channels;++c)
         qToLittleEndian(std::bit_cast<quint32>(float(c)+1.25f),frame.data()+(i+1)*32+c*4);
     const auto session=FakePcap::last();
     for(qsizetype offset=0;offset<frame.size();offset+=1024)
         FakePcap::inject(session,PacketTest::udp(p.hostMAC,p.deviceMAC,p.deviceIPv4,p.hostIPv4,
                                            p.devicePort,p.hostPort,frame.mid(offset,1024)));
-    until([&] { return completed&&signals==3; });
-    // 族落盘：每帧一个 JSON，三路按通道规格顺序、名称写出功率谱。
+    until([&] { return completed&&signals==4; });
+    // 族落盘：每帧一个 JSON，四路按通道顺序和名称写出功率谱。
     QJsonObject saved;
     until([&] {
         QDirIterator it(output.path(),{"*.json"},QDir::Files,QDirIterator::Subdirectories);
@@ -81,8 +81,8 @@ int main(int argc, char **argv)
         return document.isObject();
     });
     const auto channels=saved.value("channels").toArray();
-    check(channels.size()==3&&saved.value("frame").toObject().value("session").toString()=="probe","one frame file per completed frame");
-    for(int channel=0;channel<3;++channel) {
+    check(channels.size()==4&&saved.value("frame").toObject().value("session").toString()=="probe","one frame file per completed frame");
+    for(int channel=0;channel<Cdl5::Channels;++channel) {
         const auto object=channels[channel].toObject();
         check(object.value("name").toString()==QString::fromUtf8(channelNames[channel]),"channel names in specification order");
         const auto rows=object.value("spectrum").toArray();
@@ -91,5 +91,5 @@ int main(int argc, char **argv)
             check(value.toDouble()==channel+1.25,"spectrum values saved");
     }
     backend.close();
-    std::cout<<"PASS UDP -> Device/Collector -> consume thread -> three signals and three saved spectra\n";
+    std::cout<<"PASS UDP -> Device/Collector -> four published and saved spectra\n";
 }

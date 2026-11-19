@@ -5,16 +5,16 @@ set(FAMILYCORE_WITH_PCAP_FORMS ON)
 if(NOT TARGET Lidar::Algorithm)
     FetchContent_Declare(lidar_algorithm
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/Algorithm.git
-        GIT_TAG 001c3250b393ea32cb919591b2fbfb5ec421eedf)
+        GIT_TAG 49408fc195df20066fb84e251ef1f5b6ae22944d)
     FetchContent_MakeAvailable(lidar_algorithm)
 endif()
 if(NOT TARGET Lidar::TaskUI)
     FetchContent_Declare(lidar_chartcore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/ChartCore.git
-        GIT_TAG 903d72c4448eb0999d9da9c9c6d49a8206ca8b48)
+        GIT_TAG 3febdbebdf2e35d717ff8de777d6b822e0a62830)
     FetchContent_Declare(lidar_familycore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/TaskCore.git
-        GIT_TAG 8e0b9e1781960df0d25748ef4838f5b47e763d90)
+        GIT_TAG 5f9e9dc8600112f5b68270ec021af2a6239bd47a)
     FetchContent_MakeAvailable(lidar_familycore)
 endif()
 set(import_paths)

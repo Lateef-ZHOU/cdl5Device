@@ -1,3 +1,7 @@
+## 2026-11-20：10 kHz ADC0 四门宽
+
+Windows Release CTest 3/3。拒收旧版 0x07 掩码，核对四个槽逐点解码、原有帧长和四路高度网格、十二个图页。交付包仿真帧 `frame_0.bin` 与 `frame_1.bin` 均回放成功，四路生成 CNR。实体板 PS/PL 和 Linux DMA 未在本轮验证。
+
 ## 2026-11-17：Collector 启动与停止命令集合
 
 buildStart/buildStop 与型号 stopCommands 返回 vector<vector<unsigned char>>，原 Cdl5::command 编码及累积/停止值保持。Windows/MSVC build-1109 Release 增量构建、公开头编译和 CTest 3/3 通过（2.75 秒，UDP、Collector、页面）；构建日志无 C++ 编译或链接警告、错误。主程序集成 Release 构建、生命周期 8/8 和 8 秒离屏冒烟通过，主程序 CMake 配置的本模块 qmllint 退出 0。

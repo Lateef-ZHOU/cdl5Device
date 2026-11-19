@@ -108,13 +108,13 @@ Windows 验证：通过主程序本地源码覆盖增量构建，五个网口官
 
 CDL5 采集卡官邸的桌面版本使用 UDP，Linux 板端由 DMA Handle 接入 FPGA，BridgeCore 转发帧字节。
 
-## 规格：10 kHz ADC0 三门宽
+## 规格：10 kHz ADC0 四门宽
 
-`Cdl5Module` / `Cdl5Device` 对应 PL `0x26110401`。输出槽 0/1/2 分别是同一个 ADC0 的 6/15/30 m 距离门，三路各 240 门 × 240 频点、6 lane。门起点为 0 m，三路末门起点分别是 1434/3585/7170 m，覆盖长度为 1440/3600/7200 m。帧头 Profile、lane 格式和尺寸必须同时匹配。
+`Cdl5Module` / `Cdl5Device` 对应 PL `0x26111901` 和配套 PS。输出槽 0–3 分别是同一个 ADC0 的 6/15/30/60 m 距离门。每路 240 门 × 240 频点，6 lane，帧长仍为 1,843,232 字节。门起点为 0 m，各路末门起点为 1434/3585/7170/14340 m，覆盖长度为 1440/3600/7200/14400 m。帧头要求 Profile 7、有效槽掩码 `0x0f`、尺寸 240×240 和起始 bin 15。原三路掩码 `0x07` 的旧帧会被拒收。
 
-每路依次显示功率谱、径向风、风廓线，共九个子页。绘图标签只写门宽与图名，例如 `6m·功率谱`、`15m·径向风`、`30m·风廓线`。功率谱用距离门下标，径向风速和 CNR 用实际斜距（米）。四束反演按本路斜距乘平均实测高度角的正弦计算高度。零风速参考频率固定为 `Configuration.h` 的 `ZeroWindReferenceMHz`（80 MHz），三路共用，不读取外部配置文件。
+每路依次显示功率谱、径向风、风廓线，共十二个子页。绘图标签只写门宽与图名，例如 `60m·风廓线`。功率谱用斜距（米）和频率（MHz），径向风速和 CNR 用本路斜距。四束反演按本路斜距乘平均实测高度角的正弦计算高度。四路共用 `Configuration.h` 的 80 MHz 零风速参考。
 
-通道名为 `ADC0_6m`、`ADC0_15m`、`ADC0_30m`；落盘由 FamilyCore 的族统一 JSON 完成（每帧一个文件，按通道写功率谱、径向风与 CNR）。
+通道名为 `ADC0_6m`、`ADC0_15m`、`ADC0_30m`、`ADC0_60m`，按此顺序写入 FamilyCore 的 JSON。
 
 ## 模块与构建
 
@@ -122,7 +122,7 @@ CDL5 采集卡官邸的桌面版本使用 UDP，Linux 板端由 DMA Handle 接�
 |---|---|---|
 | CDL5_WITH_UDP | Lidar::Cdl5Udp | 复用 PcapHandle，Windows/Linux |
 | CDL5_WITH_DMA | Lidar::Cdl5Dma | Linux Cdl5DmaHandle，Qt Core，无 QML |
-| CDL5_WITH_DEVICE | Lidar::Cdl5Device | UDP 官邸、Collector、三路原谱与径向风/风廓线图，自动开启 UDP |
+| CDL5_WITH_DEVICE | Lidar::Cdl5Device | UDP 官邸、Collector、四路原谱与径向风/风廓线图，自动开启 UDP |
 
 C++20、CMake >=3.28。传输层 Qt Core >=6.8.3；桌面模块 Qt >=6.11.2、Quick/Qml/GuiPrivate/ShaderTools。UDP 需要 libpcap >=1.10.0，Windows 使用 Npcap。DMA 共享 ioctl 头通过 CDL5_DMA_PROXY_SOURCE_DIR 指向 DmaProxy，不复制或修改驱动 ABI。
 

@@ -126,7 +126,25 @@ ModulePage {
         backend: internals.device
         spec: backend.chartParameters(channel)
     }
-    mainPages: [...adc0.pages, ...adc1.pages, ...adc2.pages]
+    readonly property ChannelPlots adc3: ChannelPlots {
+        channel: 3
+        spectrumPlot: Cdl5SixtySpectrum { configuration: root.adc3.spectrumConfiguration }
+        windPlot: Cdl5SixtyRadialWind { configuration: root.adc3.windConfiguration }
+        cnrPlot: Cdl5SixtyCNR { configuration: root.adc3.cnrConfiguration }
+        profilePlot: Cdl5SixtyWindBarb {
+            id: barbs3
+            objectName: "barbsADC3"
+            configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1,
+                maxHeight: root.adc3.spec.rangeStart + root.adc3.spec.rows * root.adc3.spec.gateSpacing})
+            Connections {
+                target: internals.device
+                function onProfilesReady(profiles) { barbs3.appendProfiles(profiles) }
+            }
+        }
+        backend: internals.device
+        spec: backend.chartParameters(channel)
+    }
+    mainPages: [...adc0.pages, ...adc1.pages, ...adc2.pages, ...adc3.pages]
     readonly property Section connectionSection: ConnectionSection {
         title: qsTr("设备连接")
 

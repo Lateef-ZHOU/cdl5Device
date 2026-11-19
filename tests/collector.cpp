@@ -9,7 +9,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <type_traits>
-static constexpr const char *channelNames[] = {"ADC0_6m", "ADC0_15m", "ADC0_30m"};
+static constexpr const char *channelNames[] = {"ADC0_6m", "ADC0_15m", "ADC0_30m", "ADC0_60m"};
 static std::span<const unsigned char> rxBytes(const QByteArray &bytes)
 {
     return {reinterpret_cast<const unsigned char *>(bytes.constData()), static_cast<std::size_t>(bytes.size())};
@@ -51,20 +51,24 @@ void verify()
     const RxTime stamp = RxTime{} + std::chrono::seconds(123);
     QByteArray frame((C::Points + 1) * 32, char(-1));
     qToLittleEndian(Cdl5::FrameMagic, frame.data());
-    qToLittleEndian(Cdl5::FrameFormat, frame.data() + 4);
+    static_assert(Cdl5::FrameFormat == 0x0504060f && C::FrameBytes == 1843232);
+    qToLittleEndian(quint32(0x0504060f), frame.data() + 4);
     qToLittleEndian(quint32((Cdl5::Rows << 16) | Cdl5::Columns), frame.data() + 8);
     qToLittleEndian(quint32(25000), frame.data() + 12);
     qToLittleEndian(quint32((10000 << 16) | (Cdl5::Profile << 12) | 15), frame.data() + 16);
     for (qsizetype i = 0; i < C::Points; ++i)
-        for (int c = 0; c < 3; ++c)
+        for (int c = 0; c < Cdl5::Channels; ++c)
             qToLittleEndian(std::bit_cast<quint32>(float(i) + 0.25f * (c + 1)), frame.data() + (i + 1) * 32 + c * 4);
     check(!result->feed(rxBytes(QByteArray(31, 0)), stamp), "unaligned packet ignored");
     auto wrong = frame.first(1024);
     qToLittleEndian(quint32(0), wrong.data() + 8);
     check(!result->feed(rxBytes(wrong), stamp), "wrong dimensions rejected");
     wrong = frame.first(1024);
-    qToLittleEndian(quint32(0x05040707), wrong.data() + 4);
+    qToLittleEndian(quint32(0x0504070f), wrong.data() + 4);
     check(!result->feed(rxBytes(wrong), stamp), "wrong lane format rejected");
+    wrong = frame.first(1024);
+    qToLittleEndian(quint32(0x05040607), wrong.data() + 4);
+    check(!result->feed(rxBytes(wrong), stamp), "old three-slot mask rejected");
     wrong = frame.first(1024);
     qToLittleEndian(quint32(0), wrong.data() + 16);
     check(!result->feed(rxBytes(wrong), stamp), "wrong profile rejected");
@@ -76,12 +80,13 @@ void verify()
         ++packets;
     }
     check(packets == 1801, "1024-byte chunks and 32-byte tail");
+    const auto decoded = view(*result);
     for (qsizetype i = 0; i < C::Points; ++i)
-        for (int c = 0; c < 3; ++c)
-            check(view(*result)[c].spectrum[i] == double(i) + 0.25 * (c + 1), "FP32 LE decoded and widened in arrival order, meta ignored");
+        for (int c = 0; c < Cdl5::Channels; ++c)
+            check(decoded[c].spectrum[i] == double(i) + 0.25 * (c + 1), "FP32 LE decoded and widened in arrival order, meta ignored");
     check(result->frameTime() == stamp && retry->frameTime() == RxTime{}, "first packet stamp and fresh retry");
-    check(std::tuple_size_v<C::Frame> == Cdl5::Channels, "three ADC0 channels decoded");
-    // 三份静态规格与原帧头匹配，CNR 和风速只能沿用本通道规格。
+    check(std::tuple_size_v<C::Frame> == 4, "four ADC0 channels decoded");
+    // 各路风速、CNR 和原始功率谱使用同一份静态通道规格。
     int index = 0;
     std::apply([&](const auto &...channel) {
         const auto verifyChannel = [&](const auto &c) {
@@ -140,7 +145,7 @@ int main(int argc, char **argv)
           "duration beyond the 16-bit accumulation register rejected");
     verify();
     static_assert(Cdl5::ZeroWindReferenceMHz == 80.0, "zero-wind reference is a fixed model constant");
-    constexpr std::array steps{6, 15, 30};
+    constexpr std::array steps{6, 15, 30, 60};
     const auto verifyProfile = [&]<int channel>() {
         constexpr auto params = cdl5Params[channel];
         std::array<WindProfile::Input<params>, 4> grid;
@@ -158,6 +163,7 @@ int main(int argc, char **argv)
     verifyProfile.operator()<0>();
     verifyProfile.operator()<1>();
     verifyProfile.operator()<2>();
+    verifyProfile.operator()<3>();
     const auto peak = []<double Zero>() {
         auto values = std::make_unique<Spectrum<PeakSpec<Zero>>>();
         for (int i = 0; i < 128; ++i) (*values)[i] = 2 + 30 * std::exp(-0.5 * std::pow((i - 68) / 3.0, 2));
@@ -169,8 +175,8 @@ int main(int argc, char **argv)
           && std::abs((*outside.radialWind)[0] - (83 * 500.0 / 512 - 1) * 0.775) < 0.02 && (*wind.cnr)[0] == (*outside.cnr)[0]
           && std::abs((*wind.cnr)[0] - 10 * std::log10(std::sqrt(2 * std::numbers::pi) * 90 / 256)) < 0.02,
           "known peak, real bin offset, out-of-band reference still converts wind");
-    std::cout << "PASS ADC0 6/15/30 m geometry, FP32, retry, chunks and coalesced batches\n";
-    // 参数为实采帧文件路径：逐个回放并检查三路都能出 CNR。
+    std::cout << "PASS ADC0 6/15/30/60 m geometry, FP32, retry, chunks and coalesced batches\n";
+    // 参数为整帧文件路径：逐个回放并检查四路 CNR。
     for (int i = 1; i < argc; ++i) {
         QFile file(QString::fromLocal8Bit(argv[i]));
         check(file.open(QIODevice::ReadOnly), "open captured frame");
@@ -178,11 +184,12 @@ int main(int argc, char **argv)
         while (!file.atEnd()) collector->feed(rxBytes(file.read(7168)), {});
         check(collector->settled() && cdl5Params[0].frequencyStartMHz == 15 * Cdl5::BinMHz,
               "complete captured spectrum and ADC0 header metadata");
+        const auto replayed = view(*collector);
         for (int channel = 0; channel < Cdl5::Channels; ++channel) {
-            const auto &measured = view(*collector)[channel];
+            const auto &measured = replayed[channel];
             check(measured.cnr.size() == Cdl5::Rows
                   && std::ranges::any_of(measured.cnr, [](double v) { return std::isfinite(v); }),
-                  "real spectrum produces CNR on completion");
+                  "replayed spectrum produces CNR on completion");
             std::cout << "Replay " << channelNames[channel]
                       << ": " << Cdl5::Rows << " gates, first bin " << cdl5Params[0].frequencyStartMHz / Cdl5::BinMHz << ", range "
                       << Cdl5::RangeStartM << ".." << (Cdl5::RangeStartM + (Cdl5::Rows - 1) * Cdl5::GateSpacingM[channel]) << " m\n";

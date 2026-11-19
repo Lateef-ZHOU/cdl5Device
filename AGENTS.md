@@ -1,5 +1,7 @@
 # cdl5Device 维护入口
 
+2026-11-20 用户定：Windows 官邸适配 PL 0x26111901 的 ADC0 四门宽 6/15/30/60 m。四路共用 Profile 7 和 240×240 网格，V5 帧长仍为 1,843,232 字节，按有效槽掩码 0x0f 验收。本轮只更新上位机，实体板 PS/PL 另行更新。
+
 2026-11-11 用户定：删除“零风速参考须落在频带内”的运行时判断——这是可静态判断的硬件配置问题，不在软件职责内；径向风照常换算，radialReady 去掉“已标定”参数，页面删去对应提示。取代下方 11-09 条目中“参考落在本帧频带内即换算风速，否则只出 CNR”一句。
 
 2026-11-10 用户定：只保留 PL 0x26110401（Profile 7、10 kHz、ADC0 的 6/15/30 m 均匀三路），删除 FourK/FiveK 与三路 ADC 旧 TenK 规格；拍平型号模板为 Cdl5Device / Cdl5Module / Cdl5Collector，规格为 Configuration.h 常量，累积 1–6 s。下方提到多规格、4/5 kHz 或 Cdl5TenK* 的条目均为历史。见 README、VALIDATION。

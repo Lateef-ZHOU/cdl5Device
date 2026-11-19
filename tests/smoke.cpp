@@ -42,7 +42,7 @@ int main(int argc, char **argv)
         if (!page) { qCritical() << component.errors(); return 1; }
         const QQmlListReference charts(page.get(), "mainPages");
         const QQmlListReference sections(page.get(), "sections");
-        if (charts.count() != 9 || sections.count() < 1) return 2;
+        if (charts.count() != 12 || sections.count() < 1) return 2;
         if (page->property("name").toString().isEmpty()) return 3;
         QObject *backend = nullptr;
         int backends = 0;
@@ -57,9 +57,9 @@ int main(int argc, char **argv)
         auto *card = dynamic_cast<DAQFamily *>(backend);
         if (!card || page->property("family").value<QObject *>() != backend) return 7;
         auto *cdl5 = qobject_cast<DeviceT *>(backend);
-        for (int channel = 0; channel < 3; ++channel) {
+        for (int channel = 0; channel < Cdl5::Channels; ++channel) {
             {
-                constexpr std::array steps{6, 15, 30};
+                constexpr std::array steps{6, 15, 30, 60};
                 const auto name = QStringLiteral("%1m").arg(steps[channel]);
                 const auto surface = charts.at(channel * 3)->property("contentItem").value<QObject *>();
                 const auto radial = charts.at(channel * 3 + 1)->property("contentItem").value<QObject *>();
