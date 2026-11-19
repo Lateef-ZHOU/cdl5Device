@@ -54,7 +54,7 @@ int main(int argc, char **argv)
         }, *channels);
     });
     bool completed=false;
-    const auto context=*backend.paramsFor(1,std::nullopt,QDir(output.path()),QStringLiteral("probe"),false);
+    const auto context=*backend.paramsFor(1,std::nullopt,QDir(output.path()),"probe",false);
     check(backend.begin(context,[&](std::shared_ptr<const DAQCollector> frame) { completed=bool(frame); },{}),"begin typed collection");
     const auto sent=FakePcap::sent();
     check(!sent.empty()&&PacketTest::body(sent.front().bytes)==Cdl5::command(1),"collector command through Pcap");
