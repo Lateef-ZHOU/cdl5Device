@@ -82,13 +82,14 @@ void verify()
     check(packets == 1801, "1024-byte chunks and 32-byte tail");
     const auto decoded = view(*result);
     for (qsizetype i = 0; i < C::Points; ++i) {
-        check(decoded[0].spectrum[i] == double(i) + 0.25 && decoded[1].spectrum[i] == double(i) + 0.75,
+        const double floor = double(i % Cdl5::Columns); // 本底 = 第一门同一频点
+        check(decoded[0].spectrum[i] == double(i) - floor && decoded[1].spectrum[i] == double(i) - floor,
               "uniform slots decoded in arrival order");
-        check(decoded[2].spectrum[i] == double(i) + 0.50, "all 240 near gates come from 15 m");
+        check(decoded[2].spectrum[i] == double(i) - floor, "all 240 near gates come from 15 m");
     }
     for (int gate = 240; gate < 420; ++gate)
         for (int bin = 0; bin < 240; ++bin)
-            check(decoded[2].spectrum[gate * 240 + bin] == double((gate - 180) * 240 + bin) + 1,
+            check(decoded[2].spectrum[gate * 240 + bin] == double((gate - 180) * 240),
                   "far gates start at slot 3 gate 60");
     static_assert(Cdl5MixedRange::at(239) == 3585 && Cdl5MixedRange::at(240) == 3600
         && Cdl5MixedRange::at(241) == 3660 && Cdl5MixedRange::at(419) == 14340
@@ -118,7 +119,7 @@ void verify()
         (verifyChannel(channel), ...);
     }, result->channels());
     check(!retry->settled() && !prototype->settled(), "independent receive areas");
-    check(result->feed(rxBytes(QByteArray(1024, 0)), stamp) && view(*result)[0].spectrum[0] == .25, "settled cannot be rewritten");
+    check(result->feed(rxBytes(QByteArray(1024, 0)), stamp) && view(*result)[0].spectrum[240] == 240.0, "settled cannot be rewritten");
     auto missing = std::make_shared<C>(prototype->parameters);
     for (qsizetype offset = 0; offset < frame.size() - 32; offset += 1024)
         missing->feed(rxBytes(frame.mid(offset, 1024)), stamp);

@@ -131,19 +131,30 @@ private:
     }
 
     // 从硬件帧直接填最终谱。混合谱近段取 15 m 槽，远段取 60 m 槽。
+    // 本底 = 各槽第一个距离门（镜面之前）；15 m 与 60 m 的底噪不同，拼接前各扣各的本底。
     Frame decode() const
     {
         const char *const data = raw_.constData();
         auto six = std::make_unique<Cdl5SixFrame>();
         auto thirty = std::make_unique<Cdl5ThirtyFrame>();
         auto fifteen = std::make_unique<Cdl5MixedFrame>();
+        // 60 m 槽自己的第一门是远段本底；它不进入混合帧，先取出来。
+        std::array<double, Cdl5::Columns> sixtyFloor{};
+        for (qsizetype c = 0; c < Cdl5::Columns; ++c)
+            sixtyFloor[c] = Cdl5::power(data + (c + 1) * Cdl5::RecordBytes + 12);
         for (qsizetype i = 0; i < Points; ++i) {
             const char *record = data + (i + 1) * Cdl5::RecordBytes;
-            (*six)[i] = Cdl5::power(record);
-            (*fifteen)[i] = Cdl5::power(record + 4);
-            (*thirty)[i] = Cdl5::power(record + 8);
+            const qsizetype column = i % Cdl5::Columns;
+            (*six)[i] = Cdl5::power(record) - (i >= Cdl5::Columns ? (*six)[column] : 0.0);
+            (*fifteen)[i] = Cdl5::power(record + 4) - (i >= Cdl5::Columns ? (*fifteen)[column] : 0.0);
+            (*thirty)[i] = Cdl5::power(record + 8) - (i >= Cdl5::Columns ? (*thirty)[column] : 0.0);
             if (i >= Cdl5::FirstFarGate * Cdl5::Columns)
-                (*fifteen)[i + (Cdl5::Rows - Cdl5::FirstFarGate) * Cdl5::Columns] = Cdl5::power(record + 12);
+                (*fifteen)[i + (Cdl5::Rows - Cdl5::FirstFarGate) * Cdl5::Columns] = Cdl5::power(record + 12) - sixtyFloor[column];
+        }
+        for (qsizetype c = 0; c < Cdl5::Columns; ++c) {
+            (*six)[c] = 0.0;
+            (*thirty)[c] = 0.0;
+            (*fifteen)[c] = 0.0;
         }
         return {Cdl5SixChannel(std::move(six), Cdl5Wind{}, "ADC0_6m"),
                 Cdl5ThirtyChannel(std::move(thirty), Cdl5Wind{}, "ADC0_30m"),
