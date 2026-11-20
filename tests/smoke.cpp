@@ -59,8 +59,8 @@ int main(int argc, char **argv)
         auto *cdl5 = qobject_cast<DeviceT *>(backend);
         for (int channel = 0; channel < 3; ++channel) {
             {
-                constexpr std::array steps{6, 30, 15};
-                const bool mixed = channel == 2;
+                constexpr std::array steps{6, 15, 30};
+                const bool mixed = channel == 1;
                 const int rows = mixed ? 420 : 240;
                 const auto name = QStringLiteral("%1m").arg(steps[channel]);
                 const auto surface = charts.at(channel * 3)->property("contentItem").value<QObject *>();

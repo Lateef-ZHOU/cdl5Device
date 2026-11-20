@@ -118,7 +118,7 @@ ModulePage {
         backend: internals.device
         spec: backend.chartParameters(channel)
     }
-    mainPages: [...adc0.pages, ...adc1.pages, ...adc2.pages]
+    mainPages: [...adc0.pages, ...adc2.pages, ...adc1.pages]
     readonly property Section connectionSection: ConnectionSection {
         title: qsTr("设备连接")
 
