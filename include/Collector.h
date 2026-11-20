@@ -41,14 +41,14 @@ constexpr std::array<double, MixedGateCount + 1> mixedRangeEdges()
 
 static_assert(Cdl5::GateSpacingM == std::array{6, 15, 30, 60}, "通道名须与门宽一致");
 template<int GateWidthM>
-inline constexpr auto cdl5UniformParams = DAQParams<UniformRangeMapping<Cdl5::RangeStartM,
+inline constexpr auto cdl5UniformParams = DAQParams<UniformMapping<Cdl5::RangeStartM,
     static_cast<double>(GateWidthM), Cdl5::Rows>>{
     .wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Cdl5::ZeroWindReferenceMHz,
     .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
     .frequencyBinCount = Cdl5::Columns};
 inline constexpr auto cdl5SixParams = cdl5UniformParams<Cdl5::GateSpacingM[0]>;
 inline constexpr auto cdl5ThirtyParams = cdl5UniformParams<Cdl5::GateSpacingM[2]>;
-inline constexpr DAQParams<NonUniformRangeMapping<Cdl5::mixedRangeEdges>> cdl5FifteenParams{
+inline constexpr DAQParams<NonUniformMapping<Cdl5::mixedRangeEdges>> cdl5FifteenParams{
     .wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Cdl5::ZeroWindReferenceMHz,
     .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
     .frequencyBinCount = Cdl5::Columns

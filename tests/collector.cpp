@@ -21,7 +21,7 @@ struct TestKey : DAQParamsKey { TestKey() {} };
 DAQParameters testParameters(const int accumSec) { return DAQParameters(TestKey(), accumSec, std::nullopt, std::nullopt, {}, false); }
 // 一门 × 128 频点的测试规格：起始 bin 15、门宽 6 m，零风速参考由模板实参给出。
 template <double Zero>
-inline constexpr DAQParams<UniformRangeMapping<Cdl5::RangeStartM,
+inline constexpr DAQParams<UniformMapping<Cdl5::RangeStartM,
     Cdl5::RangeStartM + Cdl5::GateSpacingM[0], 1>> PeakSpec{
     .wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Zero,
     .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
