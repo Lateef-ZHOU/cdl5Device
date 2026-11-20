@@ -20,13 +20,13 @@ void check(bool value, const char *reason)
 struct TestKey : DAQParamsKey { TestKey() {} };
 DAQParameters testParameters(const int accumSec) { return DAQParameters(TestKey(), accumSec, std::nullopt, std::nullopt, {}, false); }
 // 一门 × 128 频点的测试规格：起始 bin 15、门宽 6 m，零风速参考由模板实参给出。
-using PeakRange = UniformMapping<Cdl5::RangeStartM, static_cast<double>(Cdl5::GateSpacingM[0]), 1>;
-using PeakFrequency = UniformMapping<Cdl5::FirstBin * Cdl5::BinMHz, Cdl5::BinMHz, 128>;
+using PeakRange = LinearMapping<Cdl5::RangeStartM, static_cast<double>(Cdl5::GateSpacingM[0]), 1>;
+using PeakFrequency = LinearMapping<Cdl5::FirstBin * Cdl5::BinMHz, Cdl5::BinMHz, 128>;
 template <double Zero>
-using PeakWind = UniformMapping<(Cdl5::FirstBin * Cdl5::BinMHz - Zero)
+using PeakWind = LinearMapping<(Cdl5::FirstBin * Cdl5::BinMHz - Zero)
     * Cdl5MetersPerMHz,
     Cdl5::BinMHz * Cdl5MetersPerMHz, 128>;
-using PeakSpectrum = Spectrum<PeakRange, PeakFrequency>;
+using PeakSpectrum = Grid2D<PeakRange, PeakFrequency>;
 using PeakChannel = DAQChannel<PeakRange, PeakFrequency>;
 // 测试只借用数值区做逐字节解码对照，不创建动态传输帧。
 struct ChannelView {
@@ -102,10 +102,10 @@ void verify()
             using SpectrumT = std::remove_cvref_t<decltype(*c.spectrum)>;
             using WindT = std::remove_cvref_t<decltype(*c.radialWind)>;
             using CnrT = std::remove_cvref_t<decltype(*c.cnr)>;
-            using RangeT = typename SpectrumT::RangeType;
-            using FrequencyT = typename SpectrumT::FrequencyType;
-            static_assert(std::same_as<RangeT, typename WindT::RangeType>
-                && std::same_as<RangeT, typename CnrT::RangeType>);
+            using RangeT = typename SpectrumT::RowAxisType;
+            using FrequencyT = typename SpectrumT::ColumnAxisType;
+            static_assert(std::same_as<RangeT, typename WindT::AxisType>
+                && std::same_as<RangeT, typename CnrT::AxisType>);
             check(QString::fromUtf8(c.name) == QString::fromUtf8(channelNames[index])
                 && RangeT::count == (index == 2 ? 420 : 240) && FrequencyT::count == Cdl5::Columns
                 && FrequencyT::start == 15 * Cdl5::BinMHz && FrequencyT::step == Cdl5::BinMHz
@@ -164,7 +164,7 @@ int main(int argc, char **argv)
     const auto verifyProfile = []<class Range>() {
         std::array<WindProfile::Input<Range>, 4> grid;
         for (int i = 0; i < 4; ++i) {
-            auto speeds = std::make_shared<RadialWind<Range>>();
+            auto speeds = std::make_shared<Array1D<Range>>();
             std::fill(speeds->begin(), speeds->end(), 1.0);
             grid[i] = {WorldModel(i * 90.0, 30.0), std::move(speeds)};
         }
@@ -172,21 +172,21 @@ int main(int argc, char **argv)
         check(profile && profile->size() == static_cast<std::size_t>(Range::count),
               "wind profile has one vector per gate");
         for (int gate = 0; gate < Range::count; ++gate)
-            check(std::abs(profile->heightAt(gate) - Range::at(gate) / 2.0) < 1e-9
+            check(std::abs(profile->position(gate) - Range::at(gate) / 2.0) < 1e-9
                     && (*profile)[gate] && std::abs((*profile)[gate]->z() - 2.0) < 1e-9,
                   "every slant range is projected to height and inverted");
     };
     verifyProfile.operator()<Cdl5SixRange>();
     verifyProfile.operator()<Cdl5ThirtyRange>();
     verifyProfile.operator()<Cdl5MixedRange>();
-    VerticalWindProfileUnit<Cdl5MixedRange> profile({}, 30.0);
+    WindProfileFrame<Cdl5MixedRange> profile({}, 0.5);
     profile[239] = LinAlg::Vec3{2, 0, 0};
     profile[240] = LinAlg::Vec3{4, 0, 0};
-    const auto seam = WindProfile::windAt(profile, (profile.heightAt(239) + profile.heightAt(240)) / 2.0);
-    const auto exact = WindProfile::windAt(profile, profile.heightAt(240));
+    const auto seam = WindProfile::windAt(profile, (profile.position(239) + profile.position(240)) / 2.0);
+    const auto exact = WindProfile::windAt(profile, profile.position(240));
     check(seam && std::abs(seam->x() - 3.0) < 1e-9
             && exact && exact->x() == 4.0
-            && !WindProfile::windAt(profile, (profile.heightAt(240) + profile.heightAt(241)) / 2.0),
+            && !WindProfile::windAt(profile, (profile.position(240) + profile.position(241)) / 2.0),
           "interpolation uses the two seam coordinates and preserves missing neighbors");
     const auto peak = []<double Zero>() {
         auto values = std::make_unique<PeakSpectrum>();

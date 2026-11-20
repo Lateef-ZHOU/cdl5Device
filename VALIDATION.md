@@ -1,3 +1,9 @@
+## 2026-11-21：容器改用绘图库抽象类型（用户定）
+
+映射改名 `LinearMapping`/`NonLinearMapping`；功率谱、径向风与 CNR 改用 `Grid2D`/`Array1D`，风廓线帧用 `WindProfileFrame`（`TimedArray1D<Range, std::optional<LinAlg::Vec3>>`）。仰角由构造参数改为运行时缩放 `sin(仰角)`，绘图取 `start/step/position/scale`，落盘字段不变。
+
+验证：build-1109 CTest 4/4；主程序整编零警告、CTest 8/8、设备生命周期 8/8、8 秒离屏冒烟与基线一致。
+
 ## 2026-11-20：帧直接携带映射（用户定）
 
 `DAQParams` 删除。距离轴按门宽定义为 `UniformMapping<起点, 步长, 240>`，混合通道为 `NonUniformMapping<Cdl5::mixedRangeEdges>`（421 点表由 constexpr 函数生成、映射内部静态持有）；频率轴为 `Cdl5Frequency`；另定义 `Cdl5Wind`（下标 → m/s 的均匀映射，波长与 80 MHz 零风速参考留在型号侧），通道构造时交入。落盘不再写 `zeroWindMHz`——族基已不持有该知识；其余字段与轴信息不变。
