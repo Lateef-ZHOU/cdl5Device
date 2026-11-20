@@ -27,14 +27,10 @@ inline constexpr int FarGateWidth = GateSpacingM[3];
 static_assert((Rows * NearGateWidth) % FarGateWidth == 0);
 inline constexpr int FirstFarGate = Rows * NearGateWidth / FarGateWidth;
 inline constexpr int MixedGateCount = Rows + (Rows - FirstFarGate);
-inline constexpr auto MixedRangeEdges = [] {
-    std::array<double, MixedGateCount + 1> edges{};
-    for (int i = 0; i < Rows; ++i)
-        edges[i] = RangeStartM + i * NearGateWidth;
-    for (int i = FirstFarGate; i <= Rows; ++i)
-        edges[Rows + i - FirstFarGate] = RangeStartM + i * FarGateWidth;
-    return edges;
-}();
+// 混合通道的分段描述：{起点, 门数, 门宽, …}——近段 240 门 × 15 m，远段从 3600 m 起 180 门 × 60 m。
+inline constexpr std::array MixedRangeSegments{
+    RangeStartM, static_cast<double>(Rows), static_cast<double>(NearGateWidth),
+    static_cast<double>(Rows - FirstFarGate), static_cast<double>(FarGateWidth)};
 } // namespace Cdl5
 
 static_assert(Cdl5::GateSpacingM == std::array{6, 15, 30, 60}, "通道名须与门宽一致");
@@ -46,11 +42,12 @@ inline constexpr auto cdl5UniformParams = [](double step) -> DAQParams {
 };
 inline constexpr auto cdl5SixParams = cdl5UniformParams(Cdl5::GateSpacingM[0]);
 inline constexpr auto cdl5ThirtyParams = cdl5UniformParams(Cdl5::GateSpacingM[2]);
-inline constexpr NonUniformDAQParams<Cdl5::MixedRangeEdges> cdl5FifteenParams{
+inline constexpr NonUniformDAQParams<Cdl5::MixedRangeSegments> cdl5FifteenParams{
     .wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Cdl5::ZeroWindReferenceMHz,
     .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
     .frequencyBinCount = Cdl5::Columns
 };
+static_assert(cdl5FifteenParams.rangeGateCount == Cdl5::MixedGateCount);
 
 // 线帧保持四个 FP32 槽。收齐后解出两个均匀通道和一个拼接通道。
 class Cdl5Collector final

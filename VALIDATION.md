@@ -1,3 +1,12 @@
+## 2026-11-20：混合通道分段距离参数（用户定）
+
+`NonUniformDAQParams` 的模板实参从「引用型号静态边界数组」改为按值的分段坐标 `std::array<double, N>`：`{首门起点, 门数, 门宽, …}`。CDL5 混合通道的 `MixedRangeEdges` 相应改为 `MixedRangeSegments`，值为 `{0, 240, 15, 180, 60}`，即近段 240 门 × 15 m、远段 180 门 × 60 m；FamilyCore 在编译期展开成 421 点边界表，覆盖 `[0, 14400)` 与 3600 m 拼接点不变。
+
+- Windows Release：cdl5Device build-1109 增量构建通过、CTest 4/4（UDP、Collector、页面、流水线）。页面探针核对 `rangeEdges` 指向 `cdl5FifteenParams.range.edges` 且为 421 项，静态核对门数与 `MixedGateCount` 一致。
+- FamilyCore build-family 增量构建通过、CTest 16/16；主程序 Release 整编零警告，8 秒离屏冒烟 stderr 与基线一致（SHA256 `47CA71BDBC5056D7D61BE11AA91AAC9B851A282C28F9A92EB2CA210FE1036865`）。
+- 反向验证：把 421 个边界直接作为数组值模板实参时，QML 元类型注册在编译期超出 `/constexpr:steps` 上限（C2131），cdl5Device 构建失败；分段参数不改变 QML 签名规模。
+- 证据：`build-1109/segment-build.log`、`FamilyCore/build-family/segment-build.log`、主程序 `build/segment-main-build.log`、`build/segment-smoke.err`。沿用本地源码覆盖，未改远端固定提交；未操作板卡、FPGA 或镜像。
+
 ## 2026-11-20：Linux 与 Windows 混合通道流水线对照
 
 Linux x86-64 / GCC 16.2.1 和 Windows x64 / MSVC 均用 Qt 6.11.2 完成 `cdl5_pipeline_probe` Release 构建和 CTest 1/1。探针用 Pcap 替身向真实 Device、Collector 和保存链投递同一份 1,843,232 字节实采帧。帧 SHA256 为 `f4fa31e4554286f55f646926bdb47a319407ad854d53f9ff205421c26911ec74`。四束回放复用这份帧，仰角分别为 20°、25°、35°、40°，用于验证平均仰角 30° 下的风廓线计算与保存。

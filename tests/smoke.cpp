@@ -73,7 +73,7 @@ int main(int argc, char **argv)
                     return 13;
                 if (mixed) {
                     const auto edges = positions["rangeEdges"].value<StaticRangeEdges>().values;
-                    if (edges.data() != Cdl5::MixedRangeEdges.data() || edges.size() != 421) return 13;
+                    if (edges.data() != cdl5FifteenParams.range.edges.data() || edges.size() != 421) return 13;
                 } else if (positions["rangeStart"].toDouble() != 0 || positions["gateSpacing"].toDouble() != steps[channel])
                     return 13;
                 const auto *surfaceItem = qobject_cast<SurfaceItem *>(surface->property("plot").value<QObject *>());
