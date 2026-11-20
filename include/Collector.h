@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <vector>
 #include <cstring>
 #include <memory>
@@ -19,26 +20,42 @@ inline constexpr double BinMHz = SampleRateHz / 1000000.0 / FftLength;
 inline constexpr double WavelengthM = 1550e-9;
 // PL 0x26111901 的起始 bin：频率轴第 i 列 = (FirstBin + i)·BinMHz；帧头起始 bin 不符即拒收该帧。
 inline constexpr int FirstBin = 15;
+
+// 第四个硬件槽只提供远段。近段覆盖 240 × 15 m，切换处正好是 60 m 槽的下标 60。
+inline constexpr int NearGateWidth = GateSpacingM[1];
+inline constexpr int FarGateWidth = GateSpacingM[3];
+static_assert((Rows * NearGateWidth) % FarGateWidth == 0);
+inline constexpr int FirstFarGate = Rows * NearGateWidth / FarGateWidth;
+inline constexpr int MixedGateCount = Rows + (Rows - FirstFarGate);
+inline constexpr auto MixedRangeEdges = [] {
+    std::array<double, MixedGateCount + 1> edges{};
+    for (int i = 0; i < Rows; ++i)
+        edges[i] = RangeStartM + i * NearGateWidth;
+    for (int i = FirstFarGate; i <= Rows; ++i)
+        edges[Rows + i - FirstFarGate] = RangeStartM + i * FarGateWidth;
+    return edges;
+}();
 } // namespace Cdl5
 
-// 四路规格：门宽不同，其余共用（ADC0 同一零风速参考、波长与频率轴）。
 static_assert(Cdl5::GateSpacingM == std::array{6, 15, 30, 60}, "通道名须与门宽一致");
-inline constexpr auto cdl5Params = [] {
-    std::array<DAQParams, Cdl5::Channels> channels{};
-    for (std::size_t i = 0; i < channels.size(); ++i) {
-        channels[i] = {.wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Cdl5::ZeroWindReferenceMHz,
-            .rangeStartM = Cdl5::RangeStartM, .rangeStepM = static_cast<double>(Cdl5::GateSpacingM[i]),
+inline constexpr auto cdl5UniformParams = [](double step) -> DAQParams {
+    return {.wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Cdl5::ZeroWindReferenceMHz,
+            .rangeStartM = Cdl5::RangeStartM, .rangeStepM = step,
             .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
             .rangeGateCount = Cdl5::Rows, .frequencyBinCount = Cdl5::Columns};
-    }
-    return channels;
-}();
+};
+inline constexpr auto cdl5SixParams = cdl5UniformParams(Cdl5::GateSpacingM[0]);
+inline constexpr auto cdl5ThirtyParams = cdl5UniformParams(Cdl5::GateSpacingM[2]);
+inline constexpr NonUniformDAQParams<Cdl5::MixedRangeEdges> cdl5FifteenParams{
+    .wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Cdl5::ZeroWindReferenceMHz,
+    .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
+    .frequencyBinCount = Cdl5::Columns
+};
 
-// 一帧 = 一条帧头记录 + Rows × Columns 条数据记录，每条 32 字节、含四路 FP32。收包校验帧头与记录对齐并按序放置字节；
-// 凑齐后按槽拆成功率谱，轴与系数取各路规格。
+// 线帧保持四个 FP32 槽。收齐后解出两个均匀通道和一个拼接通道。
 class Cdl5Collector final
-    : public TypedDAQCollector<DAQChannel<cdl5Params[0]>, DAQChannel<cdl5Params[1]>,
-                               DAQChannel<cdl5Params[2]>, DAQChannel<cdl5Params[3]>>
+    : public TypedDAQCollector<DAQChannel<cdl5SixParams>, DAQChannel<cdl5ThirtyParams>,
+                               DAQChannel<cdl5FifteenParams>>
 {
 public:
     static constexpr qsizetype Points = Cdl5::Rows * Cdl5::Columns;
@@ -86,25 +103,24 @@ private:
         return channels;
     }
 
-    // 跳过帧头记录，按 DMA 槽顺序解出 6/15/30/60 m 的功率谱。
+    // 从硬件帧直接填最终谱。混合谱近段取 15 m 槽，远段取 60 m 槽。
     Frame decode() const
     {
         const char *const data = raw_.constData();
-        auto six = std::make_unique<Spectrum<cdl5Params[0]>>();
-        auto fifteen = std::make_unique<Spectrum<cdl5Params[1]>>();
-        auto thirty = std::make_unique<Spectrum<cdl5Params[2]>>();
-        auto sixty = std::make_unique<Spectrum<cdl5Params[3]>>();
+        auto six = std::make_unique<Spectrum<cdl5SixParams>>();
+        auto thirty = std::make_unique<Spectrum<cdl5ThirtyParams>>();
+        auto fifteen = std::make_unique<Spectrum<cdl5FifteenParams>>();
         for (qsizetype i = 0; i < Points; ++i) {
             const char *record = data + (i + 1) * Cdl5::RecordBytes;
             (*six)[i] = Cdl5::power(record);
             (*fifteen)[i] = Cdl5::power(record + 4);
             (*thirty)[i] = Cdl5::power(record + 8);
-            (*sixty)[i] = Cdl5::power(record + 12);
+            if (i >= Cdl5::FirstFarGate * Cdl5::Columns)
+                (*fifteen)[i + (Cdl5::Rows - Cdl5::FirstFarGate) * Cdl5::Columns] = Cdl5::power(record + 12);
         }
-        return {DAQChannel<cdl5Params[0]>(std::move(six), "ADC0_6m"),
-                DAQChannel<cdl5Params[1]>(std::move(fifteen), "ADC0_15m"),
-                DAQChannel<cdl5Params[2]>(std::move(thirty), "ADC0_30m"),
-                DAQChannel<cdl5Params[3]>(std::move(sixty), "ADC0_60m")};
+        return {DAQChannel<cdl5SixParams>(std::move(six), "ADC0_6m"),
+                DAQChannel<cdl5ThirtyParams>(std::move(thirty), "ADC0_30m"),
+                DAQChannel<cdl5FifteenParams>(std::move(fifteen), "ADC0_15m")};
     }
 
     QByteArray raw_{FrameBytes, Qt::Uninitialized}; // 原样帧（含帧头记录）；解析后释放

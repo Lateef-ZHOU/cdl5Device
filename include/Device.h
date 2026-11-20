@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <format>
+#include "DAQChartSpecification.h"
 #include "WindBarbItem.h"
 #include "SurfaceItem.h"
 #include "Wind2DItem.h"
@@ -85,13 +86,22 @@ public:
     }
     Q_INVOKABLE QVariantMap chartParameters(int channel = 0) const
     {
-        if (channel < 0 || channel >= Cdl5::Channels) return {};
-        const auto &params = cdl5Params[static_cast<std::size_t>(channel)];
-        return {{"rows", params.rangeGateCount}, {"columns", params.frequencyBinCount}, {"channels", Cdl5::Channels},
-                {"channelName", QStringLiteral("%1m").arg(params.rangeStepM)},
-                {"rangeStart", params.rangeStartM}, {"gateSpacing", params.rangeStepM},
-                {"freqStart", params.frequencyStartMHz}, {"freqStep", params.frequencyStepMHz},
-                {"powerMax", static_cast<double>(std::numeric_limits<float>::max())}};
+        const auto specification = []<auto P>(QString name) {
+            auto result = DAQChartSpecification::make<P>(-60, 60, std::numeric_limits<float>::max());
+            result.insert("channels", static_cast<int>(std::tuple_size_v<Cdl5Collector::Frame>));
+            result.insert("channelName", name);
+            result.insert("cnrMin", -50);
+            result.insert("cnrMax", 50);
+            result.insert("spectrumByGate", true);
+            return result;
+        };
+        switch (channel)
+        {
+        case 0: return specification.template operator()<cdl5SixParams>(QStringLiteral("6m"));
+        case 1: return specification.template operator()<cdl5ThirtyParams>(QStringLiteral("30m"));
+        case 2: return specification.template operator()<cdl5FifteenParams>(QStringLiteral("15m"));
+        default: return {};
+        }
     }
 Q_SIGNALS:
     void lockChanged(HandleCore::ResourcePhase phase) override;
@@ -138,7 +148,7 @@ public:
 };
 
 // 末端仅提供 Qt 入口；历史和绘制由 ChartCore 的模板实现。
-class Cdl5FifteenWindBarb
+class Cdl5ThirtyWindBarb
 #ifdef Q_MOC_RUN
     : public WindBarbChart
 #else
@@ -148,13 +158,13 @@ class Cdl5FifteenWindBarb
     Q_OBJECT
     QML_ELEMENT
 public:
-    explicit Cdl5FifteenWindBarb(QQuickItem *parent = nullptr) : WindBarbItem(parent) {}
+    explicit Cdl5ThirtyWindBarb(QQuickItem *parent = nullptr) : WindBarbItem(parent) {}
     Q_INVOKABLE void appendProfiles(const Cdl5Profiles &profiles)
     { appendColumn(std::get<1>(profiles)); }
 };
 
 // 末端仅提供 Qt 入口；历史和绘制由 ChartCore 的模板实现。
-class Cdl5ThirtyWindBarb
+class Cdl5FifteenWindBarb
 #ifdef Q_MOC_RUN
     : public WindBarbChart
 #else
@@ -164,25 +174,9 @@ class Cdl5ThirtyWindBarb
     Q_OBJECT
     QML_ELEMENT
 public:
-    explicit Cdl5ThirtyWindBarb(QQuickItem *parent = nullptr) : WindBarbItem(parent) {}
+    explicit Cdl5FifteenWindBarb(QQuickItem *parent = nullptr) : WindBarbItem(parent) {}
     Q_INVOKABLE void appendProfiles(const Cdl5Profiles &profiles)
     { appendColumn(std::get<2>(profiles)); }
-};
-
-// 末端仅提供 Qt 入口；历史和绘制由 ChartCore 的模板实现。
-class Cdl5SixtyWindBarb
-#ifdef Q_MOC_RUN
-    : public WindBarbChart
-#else
-    : public WindBarbItem<typename std::tuple_element_t<3, Cdl5Profiles>::element_type>
-#endif
-{
-    Q_OBJECT
-    QML_ELEMENT
-public:
-    explicit Cdl5SixtyWindBarb(QQuickItem *parent = nullptr) : WindBarbItem(parent) {}
-    Q_INVOKABLE void appendProfiles(const Cdl5Profiles &profiles)
-    { appendColumn(std::get<3>(profiles)); }
 };
 
 // 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
@@ -228,48 +222,6 @@ public:
 };
 
 // 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
-class Cdl5FifteenSpectrum : public SurfaceItem
-{
-    Q_OBJECT
-    QML_ELEMENT
-public:
-    explicit Cdl5FifteenSpectrum(QQuickItem *parent = nullptr) : SurfaceItem(parent) {}
-    Q_INVOKABLE bool setData(const Cdl5Channels &channels, double low, double high)
-    {
-        if (!channels) return false;
-        return setSpectrum(std::get<1>(*channels).spectrum, low, high);
-    }
-};
-
-// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
-class Cdl5FifteenRadialWind : public Wind2DItem
-{
-    Q_OBJECT
-    QML_ELEMENT
-public:
-    explicit Cdl5FifteenRadialWind(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
-    Q_INVOKABLE void setData(const Cdl5Channels &channels)
-    {
-        if (!channels) return;
-        setRadialWind(std::get<1>(*channels).radialWind);
-    }
-};
-
-// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
-class Cdl5FifteenCNR : public Wind2DItem
-{
-    Q_OBJECT
-    QML_ELEMENT
-public:
-    explicit Cdl5FifteenCNR(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
-    Q_INVOKABLE void setData(const Cdl5Channels &channels)
-    {
-        if (!channels) return;
-        setCNR(std::get<1>(*channels).cnr);
-    }
-};
-
-// 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
 class Cdl5ThirtySpectrum : public SurfaceItem
 {
     Q_OBJECT
@@ -279,7 +231,7 @@ public:
     Q_INVOKABLE bool setData(const Cdl5Channels &channels, double low, double high)
     {
         if (!channels) return false;
-        return setSpectrum(std::get<2>(*channels).spectrum, low, high);
+        return setSpectrum(std::get<1>(*channels).spectrum, low, high);
     }
 };
 
@@ -293,7 +245,7 @@ public:
     Q_INVOKABLE void setData(const Cdl5Channels &channels)
     {
         if (!channels) return;
-        setRadialWind(std::get<2>(*channels).radialWind);
+        setRadialWind(std::get<1>(*channels).radialWind);
     }
 };
 
@@ -307,48 +259,48 @@ public:
     Q_INVOKABLE void setData(const Cdl5Channels &channels)
     {
         if (!channels) return;
-        setCNR(std::get<2>(*channels).cnr);
+        setCNR(std::get<1>(*channels).cnr);
     }
 };
 
 // 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
-class Cdl5SixtySpectrum : public SurfaceItem
+class Cdl5FifteenSpectrum : public SurfaceItem
 {
     Q_OBJECT
     QML_ELEMENT
 public:
-    explicit Cdl5SixtySpectrum(QQuickItem *parent = nullptr) : SurfaceItem(parent) {}
+    explicit Cdl5FifteenSpectrum(QQuickItem *parent = nullptr) : SurfaceItem(parent) {}
     Q_INVOKABLE bool setData(const Cdl5Channels &channels, double low, double high)
     {
         if (!channels) return false;
-        return setSpectrum(std::get<3>(*channels).spectrum, low, high);
+        return setSpectrum(std::get<2>(*channels).spectrum, low, high);
     }
 };
 
 // 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
-class Cdl5SixtyRadialWind : public Wind2DItem
+class Cdl5FifteenRadialWind : public Wind2DItem
 {
     Q_OBJECT
     QML_ELEMENT
 public:
-    explicit Cdl5SixtyRadialWind(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
+    explicit Cdl5FifteenRadialWind(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
     Q_INVOKABLE void setData(const Cdl5Channels &channels)
     {
         if (!channels) return;
-        setRadialWind(std::get<3>(*channels).radialWind);
+        setRadialWind(std::get<2>(*channels).radialWind);
     }
 };
 
 // 仅适配 Qt 元对象；类型与只读份额直达绘图数值入口。
-class Cdl5SixtyCNR : public Wind2DItem
+class Cdl5FifteenCNR : public Wind2DItem
 {
     Q_OBJECT
     QML_ELEMENT
 public:
-    explicit Cdl5SixtyCNR(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
+    explicit Cdl5FifteenCNR(QQuickItem *parent = nullptr) : Wind2DItem(parent) {}
     Q_INVOKABLE void setData(const Cdl5Channels &channels)
     {
         if (!channels) return;
-        setCNR(std::get<3>(*channels).cnr);
+        setCNR(std::get<2>(*channels).cnr);
     }
 };

@@ -10,7 +10,7 @@
 #include <QFile>
 #include <iostream>
 #include <cstdlib>
-static constexpr const char *channelNames[] = {"ADC0_6m", "ADC0_15m", "ADC0_30m", "ADC0_60m"};
+static constexpr const char *channelNames[] = {"ADC0_6m", "ADC0_30m", "ADC0_15m"};
 
 void check(bool condition,const char *message)
 { if(!condition) { std::cerr<<message<<'\n';std::exit(1); } }
@@ -45,9 +45,13 @@ int main(int argc, char **argv)
         int index = 0;
         std::apply([&](const auto &...channel) {
             const auto verify = [&](const auto &value) {
-                check(static_cast<qsizetype>(value.spectrum->size()) == points
-                    && (*value.spectrum)[0] == index + 1.25 && (*value.spectrum)[points - 1] == index + 1.25,
-                    "independent static spectra");
+                const auto &spectrum = *value.spectrum;
+                const bool mixed = index == 2;
+                constexpr double firstPower[] = {1.25, 3.25, 2.25};
+                check(spectrum.size() == static_cast<std::size_t>((mixed ? 420 : 240) * Cdl5::Columns)
+                    && spectrum[0] == firstPower[index] && spectrum[points - 1] == firstPower[index]
+                    && spectrum[spectrum.size() - 1] == (mixed ? 4.25 : firstPower[index]),
+                    "three static spectra and near/far splice");
                 ++index; ++signals;
             };
             (verify(channel), ...);
@@ -68,8 +72,8 @@ int main(int argc, char **argv)
     for(qsizetype offset=0;offset<frame.size();offset+=1024)
         FakePcap::inject(session,PacketTest::udp(p.hostMAC,p.deviceMAC,p.deviceIPv4,p.hostIPv4,
                                            p.devicePort,p.hostPort,frame.mid(offset,1024)));
-    until([&] { return completed&&signals==4; });
-    // 族落盘：每帧一个 JSON，四路按通道顺序和名称写出功率谱。
+    until([&] { return completed&&signals==3; });
+    // 族落盘：每帧一个 JSON，按三路的映射保存功率谱及距离。
     QJsonObject saved;
     until([&] {
         QDirIterator it(output.path(),{"*.json"},QDir::Files,QDirIterator::Subdirectories);
@@ -81,15 +85,25 @@ int main(int argc, char **argv)
         return document.isObject();
     });
     const auto channels=saved.value("channels").toArray();
-    check(channels.size()==4&&saved.value("frame").toObject().value("session").toString()=="probe","one frame file per completed frame");
-    for(int channel=0;channel<Cdl5::Channels;++channel) {
+    check(channels.size()==3&&saved.value("frame").toObject().value("session").toString()=="probe","one frame file per completed frame");
+    for(int channel=0;channel<3;++channel) {
         const auto object=channels[channel].toObject();
         check(object.value("name").toString()==QString::fromUtf8(channelNames[channel]),"channel names in specification order");
         const auto rows=object.value("spectrum").toArray();
-        check(rows.size()==Cdl5::Rows&&rows[0].toArray().size()==Cdl5::Columns,"spectrum rows by range gate");
-        for(const auto &row:rows) for(const auto &value:row.toArray())
-            check(value.toDouble()==channel+1.25,"spectrum values saved");
+        const bool mixed = channel == 2;
+        check(rows.size()==(mixed ? 420 : 240)&&rows[0].toArray().size()==Cdl5::Columns,"spectrum rows by range gate");
+        for (int gate = 0; gate < rows.size(); ++gate) {
+            const auto expected = mixed ? (gate < 240 ? 2.25 : 4.25) : (channel == 0 ? 1.25 : 3.25);
+            for (const auto &value : rows[gate].toArray())
+                check(value.toDouble() == expected, "spectrum values saved");
+        }
+        if (mixed) {
+            const auto range = object.value("rangeM").toArray();
+            check(range.size() == 420 && range[239].toDouble() == 3585 && range[240].toDouble() == 3600
+                && object.value("rangeStopM").toDouble() == 14400 && !object.contains("rangeStepM"),
+                "non-uniform range saved with the spectrum and scalar channels");
+        }
     }
     backend.close();
-    std::cout<<"PASS UDP -> Device/Collector -> four published and saved spectra\n";
+    std::cout<<"PASS UDP -> Device/Collector -> three published and saved spectra\n";
 }

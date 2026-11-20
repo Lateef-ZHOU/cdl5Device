@@ -42,7 +42,7 @@ int main(int argc, char **argv)
         if (!page) { qCritical() << component.errors(); return 1; }
         const QQmlListReference charts(page.get(), "mainPages");
         const QQmlListReference sections(page.get(), "sections");
-        if (charts.count() != 12 || sections.count() < 1) return 2;
+        if (charts.count() != 9 || sections.count() < 1) return 2;
         if (page->property("name").toString().isEmpty()) return 3;
         QObject *backend = nullptr;
         int backends = 0;
@@ -57,29 +57,36 @@ int main(int argc, char **argv)
         auto *card = dynamic_cast<DAQFamily *>(backend);
         if (!card || page->property("family").value<QObject *>() != backend) return 7;
         auto *cdl5 = qobject_cast<DeviceT *>(backend);
-        for (int channel = 0; channel < Cdl5::Channels; ++channel) {
+        for (int channel = 0; channel < 3; ++channel) {
             {
-                constexpr std::array steps{6, 15, 30, 60};
+                constexpr std::array steps{6, 30, 15};
+                const bool mixed = channel == 2;
+                const int rows = mixed ? 420 : 240;
                 const auto name = QStringLiteral("%1m").arg(steps[channel]);
                 const auto surface = charts.at(channel * 3)->property("contentItem").value<QObject *>();
                 const auto radial = charts.at(channel * 3 + 1)->property("contentItem").value<QObject *>();
                 const auto barbs = charts.at(channel * 3 + 2)->property("contentItem").value<QObject *>();
                 if (!surface || !radial || !barbs) return 12;
                 const auto positions = radial->property("specification").toMap();
-                if (positions["rows"].toInt() != 240 || positions["rangeStart"].toDouble() != 0
-                    || positions["gateSpacing"].toDouble() != steps[channel]
-                    || barbs->property("configuration").toMap()["maxHeight"].toInt() != 240 * steps[channel])
+                if (positions["rows"].toInt() != rows
+                    || barbs->property("configuration").toMap()["maxHeight"].toInt() != (mixed ? 14400 : 240 * steps[channel]))
+                    return 13;
+                if (mixed) {
+                    const auto edges = positions["rangeEdges"].value<StaticRangeEdges>().values;
+                    if (edges.data() != Cdl5::MixedRangeEdges.data() || edges.size() != 421) return 13;
+                } else if (positions["rangeStart"].toDouble() != 0 || positions["gateSpacing"].toDouble() != steps[channel])
                     return 13;
                 const auto *surfaceItem = qobject_cast<SurfaceItem *>(surface->property("plot").value<QObject *>());
                 if (!surfaceItem) return 14;
-                // 首帧前的初始轴：斜距按本路门宽，频率按默认起始 bin 15。
+                // 功率谱以距离门下标标注，频率按起始 bin 15。
                 const auto grid = surfaceItem->configuration();
                 const SurfaceGrid axesGrid(grid["rows"].toInt(), grid["columns"].toInt(), grid["rowStart"].toDouble(),
-                    grid["rowStep"].toDouble(), grid["columnStart"].toDouble(), grid["columnStep"].toDouble());
+                    grid["rowStep"].toDouble(), grid["columnStart"].toDouble(), grid["columnStep"].toDouble(),
+                    grid["gateAxis"].toBool());
                 const SurfaceAxes::Projection projection(SurfaceCamera{}, QSizeF(800, 600));
                 const auto axes = SurfaceAxes::makeScene(projection, axesGrid, 0, 1, app.font());
-                if (axes.scales[1].title != QStringLiteral("斜距 (m)") || axes.scales[1].low != 0
-                    || axes.scales[1].high != 239 * steps[channel] || axes.scales[0].title != QStringLiteral("频率 (MHz)")
+                if (axes.scales[1].title != QStringLiteral("距离门") || axes.scales[1].low != 0
+                    || axes.scales[1].high != rows - 1 || axes.scales[0].title != QStringLiteral("频率 (MHz)")
                     || axes.scales[0].low != 15 * Cdl5::BinMHz || axes.scales[0].high != 254 * Cdl5::BinMHz)
                     return 14;
                 const QStringList plotNames{QStringLiteral("功率谱"), QStringLiteral("径向风"), QStringLiteral("风廓线")};
@@ -100,6 +107,7 @@ int main(int argc, char **argv)
         }
         const auto spec = cdl5->chartParameters();
         if (spec["rows"].toInt() != Cdl5::Rows || spec["columns"].toInt() != Cdl5::Columns
+            || spec["channels"].toInt() != 3 || !cdl5->chartParameters(3).isEmpty()
             || cdl5->acquisitionParameters()["accumMax"].toInt() != Cdl5::MaxAccumSeconds) return 11;
         // 型号范围由 paramsFor 判定：越界造不出参数，也就到不了 begin。
         if (card->paramsFor(Cdl5::MaxAccumSeconds + 1, {}, {}, {}, false) || !card->paramsFor(1, {}, {}, {}, false)) return 12;
