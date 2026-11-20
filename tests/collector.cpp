@@ -24,8 +24,8 @@ using PeakRange = UniformMapping<Cdl5::RangeStartM, static_cast<double>(Cdl5::Ga
 using PeakFrequency = UniformMapping<Cdl5::FirstBin * Cdl5::BinMHz, Cdl5::BinMHz, 128>;
 template <double Zero>
 using PeakWind = UniformMapping<(Cdl5::FirstBin * Cdl5::BinMHz - Zero)
-    * RadialWindCalculation::metersPerSecondPerMHz(Cdl5::WavelengthM),
-    Cdl5::BinMHz * RadialWindCalculation::metersPerSecondPerMHz(Cdl5::WavelengthM), 128>;
+    * Cdl5MetersPerMHz,
+    Cdl5::BinMHz * Cdl5MetersPerMHz, 128>;
 using PeakSpectrum = Spectrum<PeakRange, PeakFrequency>;
 using PeakChannel = DAQChannel<PeakRange, PeakFrequency>;
 // 测试只借用数值区做逐字节解码对照，不创建动态传输帧。
