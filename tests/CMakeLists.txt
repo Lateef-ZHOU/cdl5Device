@@ -40,12 +40,16 @@ if(CDL5_WITH_DMA)
 endif()
 
 if(CDL5_WITH_DEVICE)
-    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR WIN32)
         add_executable(cdl5_pipeline_probe pipeline.cpp
             "${lidar_handle_core_SOURCE_DIR}/tests/pcap/FakePcap.cpp")
         target_include_directories(cdl5_pipeline_probe PRIVATE "${lidar_handle_core_SOURCE_DIR}/tests/pcap")
         target_link_libraries(cdl5_pipeline_probe PRIVATE Lidar::Cdl5Device)
         cdl5_probe(cdl5_pipeline_probe)
+        if(WIN32)
+            set_tests_properties(cdl5_pipeline_probe PROPERTIES ENVIRONMENT_MODIFICATION
+                "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>;PATH=path_list_prepend:$<TARGET_FILE_DIR:HandlePcapDependency>")
+        endif()
     endif()
     foreach(header IN ITEMS Device Collector Cdl5Protocol Configuration)
         file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/Cdl5${header}_alone.cpp"
