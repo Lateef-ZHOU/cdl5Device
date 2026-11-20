@@ -21,13 +21,12 @@ struct TestKey : DAQParamsKey { TestKey() {} };
 DAQParameters testParameters(const int accumSec) { return DAQParameters(TestKey(), accumSec, std::nullopt, std::nullopt, {}, false); }
 // 一门 × 128 频点的测试规格：起始 bin 15、门宽 6 m，零风速参考由模板实参给出。
 template <double Zero>
-inline constexpr auto PeakSpec = [] {
-    auto params = cdl5SixParams;
-    params.zeroWindMHz = Zero;
-    params.rangeGateCount = 1;
-    params.frequencyBinCount = 128;
-    return params;
-}();
+inline constexpr DAQParams<UniformRangeMapping<Cdl5::RangeStartM,
+    Cdl5::RangeStartM + Cdl5::GateSpacingM[0], 1>> PeakSpec{
+    .wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Zero,
+    .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
+    .frequencyBinCount = 128,
+};
 // 测试只借用数值区做逐字节解码对照，不创建动态传输帧。
 struct ChannelView {
     std::span<const double> spectrum, radialWind, cnr;

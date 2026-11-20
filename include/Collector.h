@@ -27,22 +27,36 @@ inline constexpr int FarGateWidth = GateSpacingM[3];
 static_assert((Rows * NearGateWidth) % FarGateWidth == 0);
 inline constexpr int FirstFarGate = Rows * NearGateWidth / FarGateWidth;
 inline constexpr int MixedGateCount = Rows + (Rows - FirstFarGate);
-// 混合通道的分段描述：{起点, 门数, 门宽, …}——近段 240 门 × 15 m，远段从 3600 m 起 180 门 × 60 m。
-inline constexpr std::array MixedRangeSegments{
-    RangeStartM, static_cast<double>(Rows), static_cast<double>(NearGateWidth),
-    static_cast<double>(Rows - FirstFarGate), static_cast<double>(FarGateWidth)};
+// 混合通道的 421 点边界表。类型签名只带 MixedRange 这个名字，坐标留在静态成员里；
+// 把整张表作为值模板实参会让 QML 元类型签名膨胀，编译期求值超出 constexpr 步数上限。
+struct MixedRange
+{
+    static constexpr bool uniform = false;
+    static constexpr int gateCount = MixedGateCount;
+    static constexpr std::array<double, MixedGateCount + 1> table = [] {
+        std::array<double, MixedGateCount + 1> edges{};
+        for (int i = 0; i < Rows; ++i)
+            edges[i] = RangeStartM + i * NearGateWidth;
+        for (int i = FirstFarGate; i <= Rows; ++i)
+            edges[Rows + i - FirstFarGate] = RangeStartM + i * FarGateWidth;
+        return edges;
+    }();
+    static constexpr std::span<const double> edges{table.data(), table.size()};
+    static constexpr double stop = table.back();
+    static constexpr double at(std::size_t gate) noexcept { return table[gate]; }
+};
 } // namespace Cdl5
 
 static_assert(Cdl5::GateSpacingM == std::array{6, 15, 30, 60}, "通道名须与门宽一致");
-inline constexpr auto cdl5UniformParams = [](double step) -> DAQParams {
-    return {.wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Cdl5::ZeroWindReferenceMHz,
-            .rangeStartM = Cdl5::RangeStartM, .rangeStepM = step,
-            .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
-            .rangeGateCount = Cdl5::Rows, .frequencyBinCount = Cdl5::Columns};
-};
-inline constexpr auto cdl5SixParams = cdl5UniformParams(Cdl5::GateSpacingM[0]);
-inline constexpr auto cdl5ThirtyParams = cdl5UniformParams(Cdl5::GateSpacingM[2]);
-inline constexpr NonUniformDAQParams<Cdl5::MixedRangeSegments> cdl5FifteenParams{
+template<int GateWidthM>
+inline constexpr auto cdl5UniformParams = DAQParams<UniformRangeMapping<Cdl5::RangeStartM,
+    Cdl5::RangeStartM + static_cast<double>(GateWidthM * Cdl5::Rows), Cdl5::Rows>>{
+    .wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Cdl5::ZeroWindReferenceMHz,
+    .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
+    .frequencyBinCount = Cdl5::Columns};
+inline constexpr auto cdl5SixParams = cdl5UniformParams<Cdl5::GateSpacingM[0]>;
+inline constexpr auto cdl5ThirtyParams = cdl5UniformParams<Cdl5::GateSpacingM[2]>;
+inline constexpr DAQParams<Cdl5::MixedRange> cdl5FifteenParams{
     .wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Cdl5::ZeroWindReferenceMHz,
     .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
     .frequencyBinCount = Cdl5::Columns
