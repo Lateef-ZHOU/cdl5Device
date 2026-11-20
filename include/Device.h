@@ -92,7 +92,6 @@ public:
             result.insert("channelName", name);
             result.insert("cnrMin", -50);
             result.insert("cnrMax", 50);
-            result.insert("spectrumByGate", true);
             return result;
         };
         switch (channel)

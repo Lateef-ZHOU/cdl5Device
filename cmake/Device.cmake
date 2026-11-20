@@ -11,10 +11,10 @@ endif()
 if(NOT TARGET Lidar::TaskUI)
     FetchContent_Declare(lidar_chartcore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/ChartCore.git
-        GIT_TAG 3febdbebdf2e35d717ff8de777d6b822e0a62830)
+        GIT_TAG 3d0059514645cc7084ec563b6553864a790ca0b4)
     FetchContent_Declare(lidar_familycore
         GIT_REPOSITORY https://github.com/Lateef-ZHOU/TaskCore.git
-        GIT_TAG 5f9e9dc8600112f5b68270ec021af2a6239bd47a)
+        GIT_TAG 9de615c13ec99831e61933a303fcbd83f059cfba)
     FetchContent_MakeAvailable(lidar_familycore)
 endif()
 set(import_paths)

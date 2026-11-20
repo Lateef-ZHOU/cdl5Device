@@ -78,16 +78,22 @@ int main(int argc, char **argv)
                     return 13;
                 const auto *surfaceItem = qobject_cast<SurfaceItem *>(surface->property("plot").value<QObject *>());
                 if (!surfaceItem) return 14;
-                // 功率谱以距离门下标标注，频率按起始 bin 15。
+                // 功率谱按物理斜距标注，混合网格的顶点位置按实际门间距分布。
                 const auto grid = surfaceItem->configuration();
                 const SurfaceGrid axesGrid(grid["rows"].toInt(), grid["columns"].toInt(), grid["rowStart"].toDouble(),
                     grid["rowStep"].toDouble(), grid["columnStart"].toDouble(), grid["columnStep"].toDouble(),
-                    grid["gateAxis"].toBool());
+                    grid["rowEdges"].value<StaticRangeEdges>().values);
                 const SurfaceAxes::Projection projection(SurfaceCamera{}, QSizeF(800, 600));
                 const auto axes = SurfaceAxes::makeScene(projection, axesGrid, 0, 1, app.font());
-                if (axes.scales[1].title != QStringLiteral("距离门") || axes.scales[1].low != 0
-                    || axes.scales[1].high != rows - 1 || axes.scales[0].title != QStringLiteral("频率 (MHz)")
+                if (axes.scales[1].title != QStringLiteral("斜距 (m)") || axes.scales[1].low != 0
+                    || axes.scales[1].high != (mixed ? 14340 : (rows - 1) * steps[channel])
+                    || axes.scales[0].title != QStringLiteral("频率 (MHz)")
                     || axes.scales[0].low != 15 * Cdl5::BinMHz || axes.scales[0].high != 254 * Cdl5::BinMHz)
+                    return 14;
+                if (mixed && (axesGrid.rowPosition(239) != 3585 || axesGrid.rowPosition(240) != 3600
+                    || std::abs(axesGrid.rowFraction(240) - 3600.0 / 14340) > 1e-12
+                    || std::abs((axesGrid.rowFraction(241) - axesGrid.rowFraction(240))
+                              - 4 * (axesGrid.rowFraction(240) - axesGrid.rowFraction(239))) > 1e-12))
                     return 14;
                 const QStringList plotNames{QStringLiteral("功率谱"), QStringLiteral("径向风"), QStringLiteral("风廓线")};
                 for (int plot = 0; plot < plotNames.size(); ++plot)
