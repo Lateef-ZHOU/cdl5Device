@@ -31,7 +31,6 @@ inline constexpr int MixedGateCount = Rows + (Rows - FirstFarGate);
 // 把整张表作为值模板实参会让 QML 元类型签名膨胀，编译期求值超出 constexpr 步数上限。
 struct MixedRange
 {
-    static constexpr bool uniform = false;
     static constexpr int gateCount = MixedGateCount;
     static constexpr std::array<double, MixedGateCount + 1> table = [] {
         std::array<double, MixedGateCount + 1> edges{};
@@ -50,7 +49,7 @@ struct MixedRange
 static_assert(Cdl5::GateSpacingM == std::array{6, 15, 30, 60}, "通道名须与门宽一致");
 template<int GateWidthM>
 inline constexpr auto cdl5UniformParams = DAQParams<UniformRangeMapping<Cdl5::RangeStartM,
-    Cdl5::RangeStartM + static_cast<double>(GateWidthM * Cdl5::Rows), Cdl5::Rows>>{
+    static_cast<double>(GateWidthM), Cdl5::Rows>>{
     .wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Cdl5::ZeroWindReferenceMHz,
     .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
     .frequencyBinCount = Cdl5::Columns};
