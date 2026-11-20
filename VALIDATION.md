@@ -1,8 +1,8 @@
 ## 2026-11-20：混合通道改用具名距离映射（用户定）
 
-`DAQParams` 改为以距离门映射类型为模板参数。CDL5 的混合通道把 421 点边界表放进具名类型 `Cdl5::MixedRange`（静态成员 `table`/`edges`/`stop`/`at`），规格写作 `DAQParams<Cdl5::MixedRange>`；均匀三路用 `UniformRangeMapping<起点, 步长, 门数>` 静态值。覆盖 `[0, 14400)` 与 3600 m 拼接点不变。
+`DAQParams` 改为以距离门映射类型为模板参数。CDL5 的混合通道用 constexpr 函数 `Cdl5::mixedRangeEdges()` 生成 421 点边界表，规格写作 `DAQParams<NonUniformRangeMapping<Cdl5::mixedRangeEdges>>`，表由映射内部静态持有；均匀三路用 `UniformRangeMapping<起点, 步长, 门数>` 静态值。覆盖 `[0, 14400)` 与 3600 m 拼接点不变。
 
-- 整张表不能作为值模板实参：421 个边界会让 QML 元类型签名膨胀到约 5.7 KB，Qt 注册时超出 `/constexpr:steps` 上限（C2131），cdl5Device 构建失败；具名类型的签名只带类型名。
+- 表不能按值作为模板实参：421 个边界会让 QML 元类型签名膨胀到约 5.7 KB，Qt 注册时超出 `/constexpr:steps` 上限（C2131），cdl5Device 构建失败；函数模板实参的类型名只带函数符号。
 - Windows Release：cdl5Device build-1109 增量构建通过、CTest 4/4（UDP、Collector、页面、流水线），页面探针核对 `rangeEdges` 指向 `cdl5FifteenParams.range.edges` 且为 421 项；FamilyCore CTest 16/16、ChartCore 4/4；主程序整编零警告、8 秒离屏冒烟与基线一致。
 - 证据：`build-1109/typemap-build.log`、`FamilyCore/build-family/typemap-build.log`、主程序 `build/typemap-main-build.log`、`build/typemap-smoke.err`。沿用本地源码覆盖，未改远端固定提交；未操作板卡、FPGA 或镜像。
 
