@@ -42,11 +42,36 @@ constexpr std::array<double, MixedGateCount + 1> mixedRangeEdges()
 static_assert(Cdl5::GateSpacingM == std::array{6, 15, 30, 60}, "通道名须与门宽一致");
 // 频率轴三路共用；距离轴按门宽区分，混合通道用 421 点表。
 using Cdl5Frequency = LinearMapping<Cdl5::FirstBin * Cdl5::BinMHz, Cdl5::BinMHz, Cdl5::Columns>;
-// 下标 → 风速（m/s）：波长与 80 MHz 零风速参考是型号知识，族基不认识。
-inline constexpr double Cdl5MetersPerMHz = Cdl5::WavelengthM / 2.0 * 1e6;
-inline constexpr double Cdl5WindStart = (Cdl5::FirstBin * Cdl5::BinMHz - Cdl5::ZeroWindReferenceMHz) * Cdl5MetersPerMHz;
-inline constexpr double Cdl5WindStep = Cdl5::BinMHz * Cdl5MetersPerMHz;
-using Cdl5Wind = LinearMapping<Cdl5WindStart, Cdl5WindStep, Cdl5::Columns>;
+// 频率 → 风速按验收口径分段：0–200 MHz 用 (f−80)/1.29，200–250 MHz 折回 (f−330)/1.29。
+// 下标 → 风速因此不是线性的：运行时用精确分段函数，落盘按非线性映射写逐点数组。
+namespace Cdl5WindDetail
+{
+inline constexpr double Divisor = 1.29;
+inline constexpr double UpperBandOffsetMHz = 330.0;
+
+[[nodiscard]] constexpr double velocityAtBin(const double bin) noexcept
+{
+    const double f = (Cdl5::FirstBin + bin) * Cdl5::BinMHz;
+    return (f <= 200.0 ? f - Cdl5::ZeroWindReferenceMHz : f - UpperBandOffsetMHz) / Divisor;
+}
+} // namespace Cdl5WindDetail
+
+struct Cdl5Wind
+{
+    static constexpr bool uniform = false;
+    static constexpr int count = Cdl5::Columns;
+    static constexpr auto edges = [] {
+        std::array<double, Cdl5::Columns + 1> table{};
+        for (int i = 0; i < Cdl5::Columns; ++i)
+            table[i] = Cdl5WindDetail::velocityAtBin(static_cast<double>(i));
+        table[Cdl5::Columns] = table[Cdl5::Columns - 1];
+        return table;
+    }();
+    static constexpr double stop = edges.back();
+
+    [[nodiscard]] static constexpr double at(std::size_t index) noexcept { return edges[index]; }
+    [[nodiscard]] static double velocity(const double bin) noexcept { return Cdl5WindDetail::velocityAtBin(bin); }
+};
 template<int GateWidthM>
 using Cdl5Range = LinearMapping<Cdl5::RangeStartM, static_cast<double>(GateWidthM), Cdl5::Rows>;
 using Cdl5SixRange = Cdl5Range<Cdl5::GateSpacingM[0]>;

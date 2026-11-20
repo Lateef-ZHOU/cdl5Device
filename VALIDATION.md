@@ -1,3 +1,10 @@
+## 2026-11-21：验收风速轴与分段换算（用户定）
+
+- 风速坐标轴由 −60～60 扩为 −90～90 m/s。
+- 频率→风速改为验收分段：0 ≤ f ≤ 200 时 v=(f−80)/1.29；200 < f ≤ 250 时 v=(f−330)/1.29。下标→风速因此非线性，运行时走 `Cdl5Wind::velocity` 的精确分段函数，落盘按非线性映射写 `winds` 数组。
+- 验收点：28/80/132/184/226 MHz → −40.31/0/40.31/80.62/−80.62 m/s，`cdl5_collector_probe` 已按此断言。
+- 验证：build-1109 CTest 4/4；主程序整编零警告、CTest 8/8、设备生命周期 8/8、8 秒离屏冒烟与基线一致。
+
 ## 2026-11-21：容器改用绘图库抽象类型（用户定）
 
 映射改名 `LinearMapping`/`NonLinearMapping`；功率谱、径向风与 CNR 改用 `Grid2D`/`Array1D`，风廓线帧用 `WindProfileFrame`（`TimedArray1D<Range, std::optional<LinAlg::Vec3>>`）。仰角由构造参数改为运行时缩放 `sin(仰角)`，绘图取 `start/step/position/scale`，落盘字段不变。

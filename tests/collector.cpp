@@ -23,9 +23,8 @@ DAQParameters testParameters(const int accumSec) { return DAQParameters(TestKey(
 using PeakRange = LinearMapping<Cdl5::RangeStartM, static_cast<double>(Cdl5::GateSpacingM[0]), 1>;
 using PeakFrequency = LinearMapping<Cdl5::FirstBin * Cdl5::BinMHz, Cdl5::BinMHz, 128>;
 template <double Zero>
-using PeakWind = LinearMapping<(Cdl5::FirstBin * Cdl5::BinMHz - Zero)
-    * Cdl5MetersPerMHz,
-    Cdl5::BinMHz * Cdl5MetersPerMHz, 128>;
+using PeakWind = LinearMapping<(Cdl5::FirstBin * Cdl5::BinMHz - Zero) / 1.29,
+    Cdl5::BinMHz / 1.29, 128>;
 using PeakSpectrum = Grid2D<PeakRange, PeakFrequency>;
 template <double Zero>
 using PeakChannel = DAQChannel<PeakRange, PeakFrequency, PeakWind<Zero>>;
@@ -196,10 +195,18 @@ int main(int argc, char **argv)
     };
     const auto wind = peak.operator()<Cdl5::ZeroWindReferenceMHz>();
     const auto outside = peak.operator()<1.0>();
-    check(std::abs((*wind.radialWind)[0] - (83 * 500.0 / 512 - 80) * 0.775) < 0.02
-          && std::abs((*outside.radialWind)[0] - (83 * 500.0 / 512 - 1) * 0.775) < 0.02 && (*wind.cnr)[0] == (*outside.cnr)[0]
+    check(std::abs((*wind.radialWind)[0] - (83 * 500.0 / 512 - 80) / 1.29) < 0.02
+          && std::abs((*outside.radialWind)[0] - (83 * 500.0 / 512 - 1) / 1.29) < 0.02 && (*wind.cnr)[0] == (*outside.cnr)[0]
           && std::abs((*wind.cnr)[0] - 10 * std::log10(std::sqrt(2 * std::numbers::pi) * 90 / 256)) < 0.02,
           "known peak, real bin offset, out-of-band reference still converts wind");
+    // 验收口径：信号源 28/80/132/184/226 MHz → −40.31/0/40.31/80.62/−80.62 m/s。
+    const auto binOf = [](const double f) { return f / Cdl5::BinMHz - Cdl5::FirstBin; };
+    check(std::abs(Cdl5Wind::velocity(binOf(28.0)) + 40.31) < 0.01
+          && std::abs(Cdl5Wind::velocity(binOf(80.0))) < 1e-9
+          && std::abs(Cdl5Wind::velocity(binOf(132.0)) - 40.31) < 0.01
+          && std::abs(Cdl5Wind::velocity(binOf(184.0)) - 80.62) < 0.01
+          && std::abs(Cdl5Wind::velocity(binOf(226.0)) + 80.62) < 0.01,
+          "acceptance frequency-to-wind points drifted");
     std::cout << "PASS ADC0 6 m, 30 m and mixed 15/60 m geometry, FP32, retry, chunks and coalesced batches\n";
     // 参数为整帧文件路径：逐个回放并检查三路 CNR。
     for (int i = 1; i < argc; ++i) {

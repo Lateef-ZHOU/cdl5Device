@@ -87,7 +87,7 @@ public:
     Q_INVOKABLE QVariantMap chartParameters(int channel = 0) const
     {
         const auto specification = []<class Range, class Frequency>(QString name) {
-            auto result = DAQChartSpecification::make<Range, Frequency>(-60, 60, std::numeric_limits<float>::max());
+            auto result = DAQChartSpecification::make<Range, Frequency>(-90, 90, std::numeric_limits<float>::max());
             result.insert("channels", static_cast<int>(std::tuple_size_v<Cdl5Collector::Frame>));
             result.insert("channelName", name);
             result.insert("cnrMin", -50);
