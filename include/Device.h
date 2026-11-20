@@ -96,9 +96,9 @@ public:
         };
         switch (channel)
         {
-        case 0: return specification.template operator()<Cdl5SixRange, Cdl5Doppler>(QStringLiteral("6m"));
-        case 1: return specification.template operator()<Cdl5ThirtyRange, Cdl5Doppler>(QStringLiteral("30m"));
-        case 2: return specification.template operator()<Cdl5MixedRange, Cdl5Doppler>(QStringLiteral("15m"));
+        case 0: return specification.template operator()<Cdl5SixRange, Cdl5Frequency>(QStringLiteral("6m"));
+        case 1: return specification.template operator()<Cdl5ThirtyRange, Cdl5Frequency>(QStringLiteral("30m"));
+        case 2: return specification.template operator()<Cdl5MixedRange, Cdl5Frequency>(QStringLiteral("15m"));
         default: return {};
         }
     }

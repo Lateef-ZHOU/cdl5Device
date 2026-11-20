@@ -21,13 +21,13 @@ struct TestKey : DAQParamsKey { TestKey() {} };
 DAQParameters testParameters(const int accumSec) { return DAQParameters(TestKey(), accumSec, std::nullopt, std::nullopt, {}, false); }
 // 一门 × 128 频点的测试规格：起始 bin 15、门宽 6 m，零风速参考由模板实参给出。
 using PeakRange = UniformMapping<Cdl5::RangeStartM, static_cast<double>(Cdl5::GateSpacingM[0]), 1>;
+using PeakFrequency = UniformMapping<Cdl5::FirstBin * Cdl5::BinMHz, Cdl5::BinMHz, 128>;
 template <double Zero>
-using PeakDoppler = DopplerMapping<UniformMapping<Cdl5::FirstBin * Cdl5::BinMHz, Cdl5::BinMHz, 128>,
-    Cdl5::WavelengthM, Zero>;
-template <double Zero>
-using PeakSpectrum = Spectrum<PeakRange, PeakDoppler<Zero>>;
-template <double Zero>
-using PeakChannel = DAQChannel<PeakRange, PeakDoppler<Zero>>;
+using PeakWind = UniformMapping<(Cdl5::FirstBin * Cdl5::BinMHz - Zero)
+    * RadialWindCalculation::metersPerSecondPerMHz(Cdl5::WavelengthM),
+    Cdl5::BinMHz * RadialWindCalculation::metersPerSecondPerMHz(Cdl5::WavelengthM), 128>;
+using PeakSpectrum = Spectrum<PeakRange, PeakFrequency>;
+using PeakChannel = DAQChannel<PeakRange, PeakFrequency>;
 // 测试只借用数值区做逐字节解码对照，不创建动态传输帧。
 struct ChannelView {
     std::span<const double> spectrum, radialWind, cnr;
@@ -109,8 +109,7 @@ void verify()
             check(QString::fromUtf8(c.name) == QString::fromUtf8(channelNames[index])
                 && RangeT::count == (index == 2 ? 420 : 240) && FrequencyT::count == Cdl5::Columns
                 && FrequencyT::start == 15 * Cdl5::BinMHz && FrequencyT::step == Cdl5::BinMHz
-                && RangeT::at(0) == 0 && RangeT::uniform == (index < 2)
-                && FrequencyT::zeroWindMHz == Cdl5::ZeroWindReferenceMHz, "static channel specification");
+                && RangeT::at(0) == 0 && RangeT::uniform == (index < 2), "static channel specification");
             check(c.cnr->size() == c.radialWind->size()
                   && c.cnr->size() == static_cast<std::size_t>(RangeT::count),
                   "processing ran for every published gate");
@@ -190,9 +189,9 @@ int main(int argc, char **argv)
             && !WindProfile::windAt(profile, (profile.heightAt(240) + profile.heightAt(241)) / 2.0),
           "interpolation uses the two seam coordinates and preserves missing neighbors");
     const auto peak = []<double Zero>() {
-        auto values = std::make_unique<PeakSpectrum<Zero>>();
+        auto values = std::make_unique<PeakSpectrum>();
         for (int i = 0; i < 128; ++i) (*values)[i] = 2 + 30 * std::exp(-0.5 * std::pow((i - 68) / 3.0, 2));
-        return PeakChannel<Zero>(std::move(values));
+        return PeakChannel(std::move(values), PeakWind<Zero>{});
     };
     const auto wind = peak.operator()<Cdl5::ZeroWindReferenceMHz>();
     const auto outside = peak.operator()<1.0>();
@@ -207,7 +206,7 @@ int main(int argc, char **argv)
         check(file.open(QIODevice::ReadOnly), "open captured frame");
         const auto collector = std::make_shared<Cdl5Collector>(testParameters(1));
         while (!file.atEnd()) collector->feed(rxBytes(file.read(7168)), {});
-        check(collector->settled() && Cdl5Doppler::start == 15 * Cdl5::BinMHz,
+        check(collector->settled() && Cdl5Frequency::start == 15 * Cdl5::BinMHz,
               "complete captured spectrum and ADC0 header metadata");
         const auto replayed = view(*collector);
         for (std::size_t channel = 0; channel < replayed.size(); ++channel) {

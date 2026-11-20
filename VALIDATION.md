@@ -1,8 +1,8 @@
 ## 2026-11-20：帧直接携带映射（用户定）
 
-`DAQParams` 删除。距离轴按门宽定义为 `UniformMapping<起点, 步长, 240>`，混合通道为 `NonUniformMapping<Cdl5::mixedRangeEdges>`（421 点表由 constexpr 函数生成、映射内部静态持有）；频率轴统一为 `Cdl5Doppler = DopplerMapping<UniformMapping<首 bin×BinMHz, BinMHz, 240>, WavelengthM, ZeroWindMHz>`，多普勒标定随之入型。
+`DAQParams` 删除。距离轴按门宽定义为 `UniformMapping<起点, 步长, 240>`，混合通道为 `NonUniformMapping<Cdl5::mixedRangeEdges>`（421 点表由 constexpr 函数生成、映射内部静态持有）；频率轴为 `Cdl5Frequency`；另定义 `Cdl5Wind`（下标 → m/s 的均匀映射，波长与 80 MHz 零风速参考留在型号侧），通道构造时交入。落盘不再写 `zeroWindMHz`——族基已不持有该知识；其余字段与轴信息不变。
 
-- 三路帧与通道：`Cdl5SixFrame`/`Cdl5ThirtyFrame`/`Cdl5MixedFrame` 为 `Spectrum<距离轴, Cdl5Doppler>`，`Cdl5SixChannel` 等为 `DAQChannel<距离轴, Cdl5Doppler>`；收集器按别名装配，覆盖 `[0, 14400)` 与 3600 m 拼接点不变。
+- 三路帧与通道：`Cdl5SixFrame`/`Cdl5ThirtyFrame`/`Cdl5MixedFrame` 为 `Spectrum<距离轴, Cdl5Frequency>`，`Cdl5SixChannel` 等为 `DAQChannel<距离轴, Cdl5Frequency>`；收集器按别名装配，覆盖 `[0, 14400)` 与 3600 m 拼接点不变。
 - 大表不能按值进类型：421 个边界会让 QML 元类型签名膨胀，Qt 注册超出 `/constexpr:steps` 上限（C2131）；表函数实参的类型名只带函数符号。
 - Windows Release：cdl5Device build-1109 增量构建通过、CTest 4/4（UDP、Collector、页面、流水线）；FamilyCore CTest 16/16、ChartCore 4/4；主程序整编零警告、CTest 8/8、设备生命周期 8/8、8 秒离屏冒烟与基线一致。
 - 证据：`build-1109/migrate-build.log`、`FamilyCore/build-family/migrate-build.log`、`ChartCore/build-current/migrate-build.log`、主程序 `build/migrate-main-build.log`、`build/migrate-smoke.err`。沿用本地源码覆盖，未改远端固定提交；未操作板卡、FPGA 或镜像。

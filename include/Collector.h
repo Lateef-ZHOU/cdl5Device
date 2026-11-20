@@ -40,21 +40,25 @@ constexpr std::array<double, MixedGateCount + 1> mixedRangeEdges()
 } // namespace Cdl5
 
 static_assert(Cdl5::GateSpacingM == std::array{6, 15, 30, 60}, "通道名须与门宽一致");
-// 频率轴（带多普勒标定）三路共用；距离轴按门宽区分，混合通道用 421 点表。
-using Cdl5Doppler = DopplerMapping<UniformMapping<Cdl5::FirstBin * Cdl5::BinMHz, Cdl5::BinMHz, Cdl5::Columns>,
-    Cdl5::WavelengthM, Cdl5::ZeroWindReferenceMHz>;
+// 频率轴三路共用；距离轴按门宽区分，混合通道用 421 点表。
+using Cdl5Frequency = UniformMapping<Cdl5::FirstBin * Cdl5::BinMHz, Cdl5::BinMHz, Cdl5::Columns>;
+// 下标 → 风速（m/s）：波长与 80 MHz 零风速参考是型号知识，族基不认识。
+inline constexpr double Cdl5MetersPerMHz = RadialWindCalculation::metersPerSecondPerMHz(Cdl5::WavelengthM);
+inline constexpr double Cdl5WindStart = (Cdl5::FirstBin * Cdl5::BinMHz - Cdl5::ZeroWindReferenceMHz) * Cdl5MetersPerMHz;
+inline constexpr double Cdl5WindStep = Cdl5::BinMHz * Cdl5MetersPerMHz;
+using Cdl5Wind = UniformMapping<Cdl5WindStart, Cdl5WindStep, Cdl5::Columns>;
 template<int GateWidthM>
 using Cdl5Range = UniformMapping<Cdl5::RangeStartM, static_cast<double>(GateWidthM), Cdl5::Rows>;
 using Cdl5SixRange = Cdl5Range<Cdl5::GateSpacingM[0]>;
 using Cdl5ThirtyRange = Cdl5Range<Cdl5::GateSpacingM[2]>;
 using Cdl5MixedRange = NonUniformMapping<Cdl5::mixedRangeEdges>;
 static_assert(Cdl5MixedRange::count == Cdl5::MixedGateCount);
-using Cdl5SixFrame = Spectrum<Cdl5SixRange, Cdl5Doppler>;
-using Cdl5ThirtyFrame = Spectrum<Cdl5ThirtyRange, Cdl5Doppler>;
-using Cdl5MixedFrame = Spectrum<Cdl5MixedRange, Cdl5Doppler>;
-using Cdl5SixChannel = DAQChannel<Cdl5SixRange, Cdl5Doppler>;
-using Cdl5ThirtyChannel = DAQChannel<Cdl5ThirtyRange, Cdl5Doppler>;
-using Cdl5MixedChannel = DAQChannel<Cdl5MixedRange, Cdl5Doppler>;
+using Cdl5SixFrame = Spectrum<Cdl5SixRange, Cdl5Frequency>;
+using Cdl5ThirtyFrame = Spectrum<Cdl5ThirtyRange, Cdl5Frequency>;
+using Cdl5MixedFrame = Spectrum<Cdl5MixedRange, Cdl5Frequency>;
+using Cdl5SixChannel = DAQChannel<Cdl5SixRange, Cdl5Frequency>;
+using Cdl5ThirtyChannel = DAQChannel<Cdl5ThirtyRange, Cdl5Frequency>;
+using Cdl5MixedChannel = DAQChannel<Cdl5MixedRange, Cdl5Frequency>;
 
 // 线帧保持四个 FP32 槽。收齐后解出两个均匀通道和一个拼接通道。
 class Cdl5Collector final
@@ -121,9 +125,9 @@ private:
             if (i >= Cdl5::FirstFarGate * Cdl5::Columns)
                 (*fifteen)[i + (Cdl5::Rows - Cdl5::FirstFarGate) * Cdl5::Columns] = Cdl5::power(record + 12);
         }
-        return {Cdl5SixChannel(std::move(six), "ADC0_6m"),
-                Cdl5ThirtyChannel(std::move(thirty), "ADC0_30m"),
-                Cdl5MixedChannel(std::move(fifteen), "ADC0_15m")};
+        return {Cdl5SixChannel(std::move(six), Cdl5Wind{}, "ADC0_6m"),
+                Cdl5ThirtyChannel(std::move(thirty), Cdl5Wind{}, "ADC0_30m"),
+                Cdl5MixedChannel(std::move(fifteen), Cdl5Wind{}, "ADC0_15m")};
     }
 
     QByteArray raw_{FrameBytes, Qt::Uninitialized}; // 原样帧（含帧头记录）；解析后释放
