@@ -20,13 +20,14 @@ void check(bool value, const char *reason)
 struct TestKey : DAQParamsKey { TestKey() {} };
 DAQParameters testParameters(const int accumSec) { return DAQParameters(TestKey(), accumSec, std::nullopt, std::nullopt, {}, false); }
 // 一门 × 128 频点的测试规格：起始 bin 15、门宽 6 m，零风速参考由模板实参给出。
+using PeakRange = UniformMapping<Cdl5::RangeStartM, static_cast<double>(Cdl5::GateSpacingM[0]), 1>;
 template <double Zero>
-inline constexpr DAQParams<UniformMapping<Cdl5::RangeStartM,
-    Cdl5::RangeStartM + Cdl5::GateSpacingM[0], 1>> PeakSpec{
-    .wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Zero,
-    .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
-    .frequencyBinCount = 128,
-};
+using PeakDoppler = DopplerMapping<UniformMapping<Cdl5::FirstBin * Cdl5::BinMHz, Cdl5::BinMHz, 128>,
+    Cdl5::WavelengthM, Zero>;
+template <double Zero>
+using PeakSpectrum = Spectrum<PeakRange, PeakDoppler<Zero>>;
+template <double Zero>
+using PeakChannel = DAQChannel<PeakRange, PeakDoppler<Zero>>;
 // 测试只借用数值区做逐字节解码对照，不创建动态传输帧。
 struct ChannelView {
     std::span<const double> spectrum, radialWind, cnr;
@@ -89,9 +90,9 @@ void verify()
         for (int bin = 0; bin < 240; ++bin)
             check(decoded[2].spectrum[gate * 240 + bin] == double((gate - 180) * 240 + bin) + 1,
                   "far gates start at slot 3 gate 60");
-    static_assert(cdl5FifteenParams.rangeAt(239) == 3585 && cdl5FifteenParams.rangeAt(240) == 3600
-        && cdl5FifteenParams.rangeAt(241) == 3660 && cdl5FifteenParams.rangeAt(419) == 14340
-        && cdl5FifteenParams.rangeStopM() == 14400);
+    static_assert(Cdl5MixedRange::at(239) == 3585 && Cdl5MixedRange::at(240) == 3600
+        && Cdl5MixedRange::at(241) == 3660 && Cdl5MixedRange::at(419) == 14340
+        && Cdl5MixedRange::stop == 14400);
     check(result->frameTime() == stamp && retry->frameTime() == RxTime{}, "first packet stamp and fresh retry");
     static_assert(std::tuple_size_v<C::Frame> == 3);
     // 各路风速、CNR 和原始功率谱使用同一份静态通道规格。
@@ -101,15 +102,17 @@ void verify()
             using SpectrumT = std::remove_cvref_t<decltype(*c.spectrum)>;
             using WindT = std::remove_cvref_t<decltype(*c.radialWind)>;
             using CnrT = std::remove_cvref_t<decltype(*c.cnr)>;
-            constexpr const auto &params = SpectrumT::params;
-            static_assert(&SpectrumT::params == &WindT::params && &SpectrumT::params == &CnrT::params);
+            using RangeT = typename SpectrumT::RangeType;
+            using FrequencyT = typename SpectrumT::FrequencyType;
+            static_assert(std::same_as<RangeT, typename WindT::RangeType>
+                && std::same_as<RangeT, typename CnrT::RangeType>);
             check(QString::fromUtf8(c.name) == QString::fromUtf8(channelNames[index])
-                && params.rangeGateCount == (index == 2 ? 420 : 240) && params.frequencyBinCount == Cdl5::Columns
-                && params.frequencyStartMHz == 15 * Cdl5::BinMHz && params.frequencyStepMHz == Cdl5::BinMHz
-                && params.rangeAt(0) == 0 && params.uniformRange == (index < 2)
-                && params.zeroWindMHz == Cdl5::ZeroWindReferenceMHz, "static channel specification");
+                && RangeT::count == (index == 2 ? 420 : 240) && FrequencyT::count == Cdl5::Columns
+                && FrequencyT::start == 15 * Cdl5::BinMHz && FrequencyT::step == Cdl5::BinMHz
+                && RangeT::at(0) == 0 && RangeT::uniform == (index < 2)
+                && FrequencyT::zeroWindMHz == Cdl5::ZeroWindReferenceMHz, "static channel specification");
             check(c.cnr->size() == c.radialWind->size()
-                  && c.cnr->size() == static_cast<std::size_t>(params.rangeGateCount),
+                  && c.cnr->size() == static_cast<std::size_t>(RangeT::count),
                   "processing ran for every published gate");
             ++index;
         };
@@ -159,25 +162,25 @@ int main(int argc, char **argv)
           "duration beyond the 16-bit accumulation register rejected");
     verify();
     static_assert(Cdl5::ZeroWindReferenceMHz == 80.0, "zero-wind reference is a fixed model constant");
-    const auto verifyProfile = []<auto params>() {
-        std::array<WindProfile::Input<params>, 4> grid;
+    const auto verifyProfile = []<class Range>() {
+        std::array<WindProfile::Input<Range>, 4> grid;
         for (int i = 0; i < 4; ++i) {
-            auto speeds = std::make_shared<RadialWind<params>>();
+            auto speeds = std::make_shared<RadialWind<Range>>();
             std::fill(speeds->begin(), speeds->end(), 1.0);
             grid[i] = {WorldModel(i * 90.0, 30.0), std::move(speeds)};
         }
-        const auto profile = WindProfile::Calc<params>(grid, RxTime{});
-        check(profile && profile->size() == static_cast<std::size_t>(params.rangeGateCount),
+        const auto profile = WindProfile::Calc<Range>(grid, RxTime{});
+        check(profile && profile->size() == static_cast<std::size_t>(Range::count),
               "wind profile has one vector per gate");
-        for (int gate = 0; gate < params.rangeGateCount; ++gate)
-            check(std::abs(profile->heightAt(gate) - params.rangeAt(gate) / 2.0) < 1e-9
+        for (int gate = 0; gate < Range::count; ++gate)
+            check(std::abs(profile->heightAt(gate) - Range::at(gate) / 2.0) < 1e-9
                     && (*profile)[gate] && std::abs((*profile)[gate]->z() - 2.0) < 1e-9,
                   "every slant range is projected to height and inverted");
     };
-    verifyProfile.operator()<cdl5SixParams>();
-    verifyProfile.operator()<cdl5ThirtyParams>();
-    verifyProfile.operator()<cdl5FifteenParams>();
-    VerticalWindProfileUnit<cdl5FifteenParams> profile({}, 30.0);
+    verifyProfile.operator()<Cdl5SixRange>();
+    verifyProfile.operator()<Cdl5ThirtyRange>();
+    verifyProfile.operator()<Cdl5MixedRange>();
+    VerticalWindProfileUnit<Cdl5MixedRange> profile({}, 30.0);
     profile[239] = LinAlg::Vec3{2, 0, 0};
     profile[240] = LinAlg::Vec3{4, 0, 0};
     const auto seam = WindProfile::windAt(profile, (profile.heightAt(239) + profile.heightAt(240)) / 2.0);
@@ -187,9 +190,9 @@ int main(int argc, char **argv)
             && !WindProfile::windAt(profile, (profile.heightAt(240) + profile.heightAt(241)) / 2.0),
           "interpolation uses the two seam coordinates and preserves missing neighbors");
     const auto peak = []<double Zero>() {
-        auto values = std::make_unique<Spectrum<PeakSpec<Zero>>>();
+        auto values = std::make_unique<PeakSpectrum<Zero>>();
         for (int i = 0; i < 128; ++i) (*values)[i] = 2 + 30 * std::exp(-0.5 * std::pow((i - 68) / 3.0, 2));
-        return DAQChannel<PeakSpec<Zero>>(std::move(values));
+        return PeakChannel<Zero>(std::move(values));
     };
     const auto wind = peak.operator()<Cdl5::ZeroWindReferenceMHz>();
     const auto outside = peak.operator()<1.0>();
@@ -204,7 +207,7 @@ int main(int argc, char **argv)
         check(file.open(QIODevice::ReadOnly), "open captured frame");
         const auto collector = std::make_shared<Cdl5Collector>(testParameters(1));
         while (!file.atEnd()) collector->feed(rxBytes(file.read(7168)), {});
-        check(collector->settled() && cdl5SixParams.frequencyStartMHz == 15 * Cdl5::BinMHz,
+        check(collector->settled() && Cdl5Doppler::start == 15 * Cdl5::BinMHz,
               "complete captured spectrum and ADC0 header metadata");
         const auto replayed = view(*collector);
         for (std::size_t channel = 0; channel < replayed.size(); ++channel) {

@@ -40,25 +40,25 @@ constexpr std::array<double, MixedGateCount + 1> mixedRangeEdges()
 } // namespace Cdl5
 
 static_assert(Cdl5::GateSpacingM == std::array{6, 15, 30, 60}, "通道名须与门宽一致");
+// 频率轴（带多普勒标定）三路共用；距离轴按门宽区分，混合通道用 421 点表。
+using Cdl5Doppler = DopplerMapping<UniformMapping<Cdl5::FirstBin * Cdl5::BinMHz, Cdl5::BinMHz, Cdl5::Columns>,
+    Cdl5::WavelengthM, Cdl5::ZeroWindReferenceMHz>;
 template<int GateWidthM>
-inline constexpr auto cdl5UniformParams = DAQParams<UniformMapping<Cdl5::RangeStartM,
-    static_cast<double>(GateWidthM), Cdl5::Rows>>{
-    .wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Cdl5::ZeroWindReferenceMHz,
-    .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
-    .frequencyBinCount = Cdl5::Columns};
-inline constexpr auto cdl5SixParams = cdl5UniformParams<Cdl5::GateSpacingM[0]>;
-inline constexpr auto cdl5ThirtyParams = cdl5UniformParams<Cdl5::GateSpacingM[2]>;
-inline constexpr DAQParams<NonUniformMapping<Cdl5::mixedRangeEdges>> cdl5FifteenParams{
-    .wavelengthM = Cdl5::WavelengthM, .zeroWindMHz = Cdl5::ZeroWindReferenceMHz,
-    .frequencyStartMHz = Cdl5::FirstBin * Cdl5::BinMHz, .frequencyStepMHz = Cdl5::BinMHz,
-    .frequencyBinCount = Cdl5::Columns
-};
-static_assert(cdl5FifteenParams.rangeGateCount == Cdl5::MixedGateCount);
+using Cdl5Range = UniformMapping<Cdl5::RangeStartM, static_cast<double>(GateWidthM), Cdl5::Rows>;
+using Cdl5SixRange = Cdl5Range<Cdl5::GateSpacingM[0]>;
+using Cdl5ThirtyRange = Cdl5Range<Cdl5::GateSpacingM[2]>;
+using Cdl5MixedRange = NonUniformMapping<Cdl5::mixedRangeEdges>;
+static_assert(Cdl5MixedRange::count == Cdl5::MixedGateCount);
+using Cdl5SixFrame = Spectrum<Cdl5SixRange, Cdl5Doppler>;
+using Cdl5ThirtyFrame = Spectrum<Cdl5ThirtyRange, Cdl5Doppler>;
+using Cdl5MixedFrame = Spectrum<Cdl5MixedRange, Cdl5Doppler>;
+using Cdl5SixChannel = DAQChannel<Cdl5SixRange, Cdl5Doppler>;
+using Cdl5ThirtyChannel = DAQChannel<Cdl5ThirtyRange, Cdl5Doppler>;
+using Cdl5MixedChannel = DAQChannel<Cdl5MixedRange, Cdl5Doppler>;
 
 // 线帧保持四个 FP32 槽。收齐后解出两个均匀通道和一个拼接通道。
 class Cdl5Collector final
-    : public TypedDAQCollector<DAQChannel<cdl5SixParams>, DAQChannel<cdl5ThirtyParams>,
-                               DAQChannel<cdl5FifteenParams>>
+    : public TypedDAQCollector<Cdl5SixChannel, Cdl5ThirtyChannel, Cdl5MixedChannel>
 {
 public:
     static constexpr qsizetype Points = Cdl5::Rows * Cdl5::Columns;
@@ -110,9 +110,9 @@ private:
     Frame decode() const
     {
         const char *const data = raw_.constData();
-        auto six = std::make_unique<Spectrum<cdl5SixParams>>();
-        auto thirty = std::make_unique<Spectrum<cdl5ThirtyParams>>();
-        auto fifteen = std::make_unique<Spectrum<cdl5FifteenParams>>();
+        auto six = std::make_unique<Cdl5SixFrame>();
+        auto thirty = std::make_unique<Cdl5ThirtyFrame>();
+        auto fifteen = std::make_unique<Cdl5MixedFrame>();
         for (qsizetype i = 0; i < Points; ++i) {
             const char *record = data + (i + 1) * Cdl5::RecordBytes;
             (*six)[i] = Cdl5::power(record);
@@ -121,9 +121,9 @@ private:
             if (i >= Cdl5::FirstFarGate * Cdl5::Columns)
                 (*fifteen)[i + (Cdl5::Rows - Cdl5::FirstFarGate) * Cdl5::Columns] = Cdl5::power(record + 12);
         }
-        return {DAQChannel<cdl5SixParams>(std::move(six), "ADC0_6m"),
-                DAQChannel<cdl5ThirtyParams>(std::move(thirty), "ADC0_30m"),
-                DAQChannel<cdl5FifteenParams>(std::move(fifteen), "ADC0_15m")};
+        return {Cdl5SixChannel(std::move(six), "ADC0_6m"),
+                Cdl5ThirtyChannel(std::move(thirty), "ADC0_30m"),
+                Cdl5MixedChannel(std::move(fifteen), "ADC0_15m")};
     }
 
     QByteArray raw_{FrameBytes, Qt::Uninitialized}; // 原样帧（含帧头记录）；解析后释放

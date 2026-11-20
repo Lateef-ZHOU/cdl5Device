@@ -86,8 +86,8 @@ public:
     }
     Q_INVOKABLE QVariantMap chartParameters(int channel = 0) const
     {
-        const auto specification = []<auto P>(QString name) {
-            auto result = DAQChartSpecification::make<P>(-60, 60, std::numeric_limits<float>::max());
+        const auto specification = []<class Range, class Frequency>(QString name) {
+            auto result = DAQChartSpecification::make<Range, Frequency>(-60, 60, std::numeric_limits<float>::max());
             result.insert("channels", static_cast<int>(std::tuple_size_v<Cdl5Collector::Frame>));
             result.insert("channelName", name);
             result.insert("cnrMin", -50);
@@ -96,9 +96,9 @@ public:
         };
         switch (channel)
         {
-        case 0: return specification.template operator()<cdl5SixParams>(QStringLiteral("6m"));
-        case 1: return specification.template operator()<cdl5ThirtyParams>(QStringLiteral("30m"));
-        case 2: return specification.template operator()<cdl5FifteenParams>(QStringLiteral("15m"));
+        case 0: return specification.template operator()<Cdl5SixRange, Cdl5Doppler>(QStringLiteral("6m"));
+        case 1: return specification.template operator()<Cdl5ThirtyRange, Cdl5Doppler>(QStringLiteral("30m"));
+        case 2: return specification.template operator()<Cdl5MixedRange, Cdl5Doppler>(QStringLiteral("15m"));
         default: return {};
         }
     }
