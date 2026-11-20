@@ -23,7 +23,7 @@ Channels sampleChannels(std::index_sequence<I...>)
         using S = std::remove_const_t<typename decltype(C::spectrum)::element_type>;
         auto spectrum = std::make_unique<S>();
         std::fill(spectrum->begin(), spectrum->end(), 1.0);
-        return C(std::move(spectrum), LinearMapping<0.0, 1.0, S::ColumnAxisType::count>{});
+        return C(std::move(spectrum));
     };
     return std::make_shared<typename Channels::element_type>(channel.template operator()<std::tuple_element_t<I, typename Channels::element_type>>()...);
 }

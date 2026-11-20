@@ -56,9 +56,9 @@ static_assert(Cdl5MixedRange::count == Cdl5::MixedGateCount);
 using Cdl5SixFrame = Grid2D<Cdl5SixRange, Cdl5Frequency>;
 using Cdl5ThirtyFrame = Grid2D<Cdl5ThirtyRange, Cdl5Frequency>;
 using Cdl5MixedFrame = Grid2D<Cdl5MixedRange, Cdl5Frequency>;
-using Cdl5SixChannel = DAQChannel<Cdl5SixRange, Cdl5Frequency>;
-using Cdl5ThirtyChannel = DAQChannel<Cdl5ThirtyRange, Cdl5Frequency>;
-using Cdl5MixedChannel = DAQChannel<Cdl5MixedRange, Cdl5Frequency>;
+using Cdl5SixChannel = DAQChannel<Cdl5SixRange, Cdl5Frequency, Cdl5Wind>;
+using Cdl5ThirtyChannel = DAQChannel<Cdl5ThirtyRange, Cdl5Frequency, Cdl5Wind>;
+using Cdl5MixedChannel = DAQChannel<Cdl5MixedRange, Cdl5Frequency, Cdl5Wind>;
 
 // 线帧保持四个 FP32 槽。收齐后解出两个均匀通道和一个拼接通道。
 class Cdl5Collector final

@@ -27,7 +27,8 @@ using PeakWind = LinearMapping<(Cdl5::FirstBin * Cdl5::BinMHz - Zero)
     * Cdl5MetersPerMHz,
     Cdl5::BinMHz * Cdl5MetersPerMHz, 128>;
 using PeakSpectrum = Grid2D<PeakRange, PeakFrequency>;
-using PeakChannel = DAQChannel<PeakRange, PeakFrequency>;
+template <double Zero>
+using PeakChannel = DAQChannel<PeakRange, PeakFrequency, PeakWind<Zero>>;
 // 测试只借用数值区做逐字节解码对照，不创建动态传输帧。
 struct ChannelView {
     std::span<const double> spectrum, radialWind, cnr;
@@ -191,7 +192,7 @@ int main(int argc, char **argv)
     const auto peak = []<double Zero>() {
         auto values = std::make_unique<PeakSpectrum>();
         for (int i = 0; i < 128; ++i) (*values)[i] = 2 + 30 * std::exp(-0.5 * std::pow((i - 68) / 3.0, 2));
-        return PeakChannel(std::move(values), PeakWind<Zero>{});
+        return PeakChannel<Zero>(std::move(values), PeakWind<Zero>{});
     };
     const auto wind = peak.operator()<Cdl5::ZeroWindReferenceMHz>();
     const auto outside = peak.operator()<1.0>();

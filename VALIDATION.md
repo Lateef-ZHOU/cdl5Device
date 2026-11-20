@@ -2,6 +2,8 @@
 
 映射改名 `LinearMapping`/`NonLinearMapping`；功率谱、径向风与 CNR 改用 `Grid2D`/`Array1D`，风廓线帧用 `WindProfileFrame`（`TimedArray1D<Range, std::optional<LinAlg::Vec3>>`）。仰角由构造参数改为运行时缩放 `sin(仰角)`，绘图取 `start/step/position/scale`，落盘字段不变。
 
+落盘通道轴改为 `startRange`/`rangeStep`、`startFreq`/`freqStep`、`startWind`/`windStep`，非线性映射写 `ranges`/`freqs`/`winds` 数组；风廓线写 `startHeight`/`heightStep` 或 `heights`。
+
 验证：build-1109 CTest 4/4；主程序整编零警告、CTest 8/8、设备生命周期 8/8、8 秒离屏冒烟与基线一致。
 
 ## 2026-11-20：帧直接携带映射（用户定）

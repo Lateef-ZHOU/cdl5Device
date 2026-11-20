@@ -101,16 +101,14 @@ void verifySaved(const QJsonObject &saved, const QJsonObject &profile, const QBy
         }
         if (channel != 2) {
             const int step = channel == 0 ? 6 : 30;
-            check(data.value("rangeStartM").toDouble(-1) == 0 && data.value("rangeStepM").toInt() == step
-                  && wind.value("heightStartM").toDouble(-1) == 0 && wind.value("heightStepM").toDouble() == step / 2.0
-                  && !data.contains("rangeM") && !wind.contains("heightM"), "uniform JSON axes");
+            check(data.value("startRange").toDouble(-1) == 0 && data.value("rangeStep").toDouble() == step
+                  && wind.value("startHeight").toDouble(-1) == 0 && wind.value("heightStep").toDouble() == step / 2.0
+                  && !data.contains("ranges") && !wind.contains("heights"), "uniform JSON axes");
         } else {
-            const auto ranges = data.value("rangeM").toArray();
-            const auto heights = wind.value("heightM").toArray();
+            const auto ranges = data.value("ranges").toArray();
+            const auto heights = wind.value("heights").toArray();
             check(ranges.size() == count && heights.size() == count
-                  && data.value("rangeStopM").toInt() == 14400
-                  && std::abs(wind.value("heightStopM").toDouble() - 7200.0) < 1e-9
-                  && !data.contains("rangeStepM") && !wind.contains("heightStepM"), "non-uniform JSON axes");
+                  && !data.contains("rangeStep") && !wind.contains("heightStep"), "non-uniform JSON axes");
             for (int gate = 0; gate < count; ++gate) {
                 const int distance = gate < 240 ? gate * 15 : (gate - 180) * 60;
                 check(ranges[gate].toDouble(-1) == distance
