@@ -43,7 +43,8 @@ static_assert(Cdl5::GateSpacingM == std::array{6, 15, 30, 60}, "通道名须与�
 // 频率轴三路共用；距离轴按门宽区分，混合通道用 421 点表。
 using Cdl5Frequency = LinearMapping<Cdl5::FirstBin * Cdl5::BinMHz, Cdl5::BinMHz, Cdl5::Columns>;
 // 频率 → 风速按验收口径分段：0–200 MHz 用 (f−80)/1.29，200–250 MHz 折回 (f−330)/1.29。
-// 下标 → 风速因此不是线性的：运行时用精确分段函数，落盘按非线性映射写逐点数组。
+// 换到下标域后曲线在 f=200 处有跳变（约 bin 189.8），不是单调表；风速值是映射不是轴，
+// 用 TableMapping 交给族基，轴仍用 NonLinearMapping 保证单调。
 namespace Cdl5WindDetail
 {
 inline constexpr double Divisor = 1.29;
@@ -56,22 +57,16 @@ inline constexpr double UpperBandOffsetMHz = 330.0;
 }
 } // namespace Cdl5WindDetail
 
-struct Cdl5Wind
+constexpr std::array<double, Cdl5::Columns + 1> cdl5WindTable()
 {
-    static constexpr bool uniform = false;
-    static constexpr int count = Cdl5::Columns;
-    static constexpr auto edges = [] {
-        std::array<double, Cdl5::Columns + 1> table{};
-        for (int i = 0; i < Cdl5::Columns; ++i)
-            table[i] = Cdl5WindDetail::velocityAtBin(static_cast<double>(i));
-        table[Cdl5::Columns] = table[Cdl5::Columns - 1];
-        return table;
-    }();
-    static constexpr double stop = edges.back();
+    std::array<double, Cdl5::Columns + 1> table{};
+    for (int i = 0; i < Cdl5::Columns; ++i)
+        table[i] = Cdl5WindDetail::velocityAtBin(static_cast<double>(i));
+    table[Cdl5::Columns] = table[Cdl5::Columns - 1]; // 表尾供插值取上界；落盘只写前 count 项
+    return table;
+}
 
-    [[nodiscard]] static constexpr double at(std::size_t index) noexcept { return edges[index]; }
-    [[nodiscard]] static double velocity(const double bin) noexcept { return Cdl5WindDetail::velocityAtBin(bin); }
-};
+using Cdl5Wind = TableMapping<cdl5WindTable>;
 template<int GateWidthM>
 using Cdl5Range = LinearMapping<Cdl5::RangeStartM, static_cast<double>(GateWidthM), Cdl5::Rows>;
 using Cdl5SixRange = Cdl5Range<Cdl5::GateSpacingM[0]>;

@@ -201,11 +201,11 @@ int main(int argc, char **argv)
           "known peak, real bin offset, out-of-band reference still converts wind");
     // 验收口径：信号源 28/80/132/184/226 MHz → −40.31/0/40.31/80.62/−80.62 m/s。
     const auto binOf = [](const double f) { return f / Cdl5::BinMHz - Cdl5::FirstBin; };
-    check(std::abs(Cdl5Wind::velocity(binOf(28.0)) + 40.31) < 0.01
-          && std::abs(Cdl5Wind::velocity(binOf(80.0))) < 1e-9
-          && std::abs(Cdl5Wind::velocity(binOf(132.0)) - 40.31) < 0.01
-          && std::abs(Cdl5Wind::velocity(binOf(184.0)) - 80.62) < 0.01
-          && std::abs(Cdl5Wind::velocity(binOf(226.0)) + 80.62) < 0.01,
+    check(std::abs(RadialWindCalculation::windAtBin<Cdl5Wind>(binOf(28.0)) + 40.31) < 0.01
+          && std::abs(RadialWindCalculation::windAtBin<Cdl5Wind>(binOf(80.0))) < 1e-9
+          && std::abs(RadialWindCalculation::windAtBin<Cdl5Wind>(binOf(132.0)) - 40.31) < 0.01
+          && std::abs(RadialWindCalculation::windAtBin<Cdl5Wind>(binOf(184.0)) - 80.62) < 0.01
+          && std::abs(RadialWindCalculation::windAtBin<Cdl5Wind>(binOf(226.0)) + 80.62) < 0.01,
           "acceptance frequency-to-wind points drifted");
     std::cout << "PASS ADC0 6 m, 30 m and mixed 15/60 m geometry, FP32, retry, chunks and coalesced batches\n";
     // 参数为整帧文件路径：逐个回放并检查三路 CNR。
