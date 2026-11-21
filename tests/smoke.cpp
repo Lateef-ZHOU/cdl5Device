@@ -70,29 +70,30 @@ int main(int argc, char **argv)
                 if (!surface || !radial || !barbs) return 12;
                 const auto positions = radial->property("specification").toMap();
                 if (positions["rows"].toInt() != rows
-                    || barbs->property("configuration").toMap()["maxHeight"].toInt() != (mixed ? 14400 : 240 * steps[channel]))
+                    || barbs->property("configuration").toMap()["maxHeight"].toInt() != (mixed ? 13920 : (240 - masks[channel]) * steps[channel]))
                     return 13;
                 if (mixed) {
                     const auto edges = positions["rangeEdges"].value<StaticRangeEdges>().values;
-                    if (edges.data() != Cdl5MixedRange::edges.data() + masks[channel] || edges.size() != 421 - masks[channel]) return 13;
-                } else if (positions["rangeStart"].toDouble() != 480 || positions["gateSpacing"].toDouble() != steps[channel])
+                    if (edges.size() != 421 - masks[channel] || edges.front() != 0.0 || edges.back() != 14400.0 - 480.0) return 13;
+                } else if (positions["rangeStart"].toDouble() != 0 || positions["gateSpacing"].toDouble() != steps[channel])
                     return 13;
                 const auto *surfaceItem = qobject_cast<SurfaceItem *>(surface->property("plot").value<QObject *>());
                 if (!surfaceItem) return 14;
                 // 功率谱按物理斜距标注，混合网格的顶点位置按实际门间距分布。
                 const auto grid = surfaceItem->configuration();
+                const auto rowEdgesPayload = grid["rowEdges"].value<StaticRangeEdges>();
                 const SurfaceGrid axesGrid(grid["rows"].toInt(), grid["columns"].toInt(), grid["rowStart"].toDouble(),
                     grid["rowStep"].toDouble(), grid["columnStart"].toDouble(), grid["columnStep"].toDouble(),
-                    grid["rowEdges"].value<StaticRangeEdges>().values);
+                    std::span<const double>(rowEdgesPayload.values));
                 const SurfaceAxes::Projection projection(SurfaceCamera{}, QSizeF(800, 600));
                 const auto axes = SurfaceAxes::makeScene(projection, axesGrid, 0, 1, app.font());
-                if (axes.scales[1].title != QStringLiteral("斜距 (m)") || axes.scales[1].low != 480
-                    || axes.scales[1].high != (mixed ? 14340 : 480 + (rows - 1) * steps[channel])
+                if (axes.scales[1].title != QStringLiteral("斜距 (m)") || axes.scales[1].low != 0
+                    || axes.scales[1].high != (mixed ? 13860 : (rows - 1) * steps[channel])
                     || axes.scales[0].title != QStringLiteral("频率 (MHz)")
                     || axes.scales[0].low != 15 * Cdl5::BinMHz || axes.scales[0].high != 254 * Cdl5::BinMHz)
                     return 14;
                 const int shift = masks[1]; // 混合通道遮蔽后，图上第 0 门对应模型第 shift 门
-                if (mixed && (axesGrid.rowPosition(239 - shift) != 3585 || axesGrid.rowPosition(240 - shift) != 3600
+                if (mixed && (axesGrid.rowPosition(239 - shift) != 3105 || axesGrid.rowPosition(240 - shift) != 3120
                     || std::abs(axesGrid.rowFraction(240 - shift) - (3600.0 - 480) / (14340.0 - 480)) > 1e-12
                     || std::abs((axesGrid.rowFraction(241 - shift) - axesGrid.rowFraction(240 - shift))
                               - 4 * (axesGrid.rowFraction(240 - shift) - axesGrid.rowFraction(239 - shift))) > 1e-12))
