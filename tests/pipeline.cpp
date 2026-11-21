@@ -60,9 +60,7 @@ double originalPower(const QByteArray &frame, int channel, int gate, int bin)
     constexpr std::array nearSlots{0, 2, 1};
     const int slot = farSegment ? 3 : nearSlots[channel];
     const int sourceGate = farSegment ? gate - 180 : gate;
-    const double raw = Cdl5::power(frame.constData() + ((sourceGate * 240 + bin) + 1) * 32 + slot * 4);
-    const double floor = Cdl5::power(frame.constData() + (bin + 1) * 32 + slot * 4); // 本底 = 该槽第一门
-    return raw - floor;
+    return Cdl5::power(frame.constData() + ((sourceGate * 240 + bin) + 1) * 32 + slot * 4);
 }
 
 QJsonObject savedJson(const QString &path)
