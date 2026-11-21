@@ -61,7 +61,8 @@ int main(int argc, char **argv)
             {
                 constexpr std::array steps{6, 15, 30};
                 const bool mixed = channel == 1;
-                const int rows = mixed ? 420 : 240;
+                constexpr std::array masks{80, 32, 16}; // 镜面 480 m：6/15/30 m 各遮蔽的门数
+                const int rows = (mixed ? 420 : 240) - masks[channel];
                 const auto name = QStringLiteral("%1m").arg(steps[channel]);
                 const auto surface = charts.at(channel * 3)->property("contentItem").value<QObject *>();
                 const auto radial = charts.at(channel * 3 + 1)->property("contentItem").value<QObject *>();
@@ -73,8 +74,8 @@ int main(int argc, char **argv)
                     return 13;
                 if (mixed) {
                     const auto edges = positions["rangeEdges"].value<StaticRangeEdges>().values;
-                    if (edges.data() != Cdl5MixedRange::edges.data() || edges.size() != 421) return 13;
-                } else if (positions["rangeStart"].toDouble() != 0 || positions["gateSpacing"].toDouble() != steps[channel])
+                    if (edges.data() != Cdl5MixedRange::edges.data() + masks[channel] || edges.size() != 421 - masks[channel]) return 13;
+                } else if (positions["rangeStart"].toDouble() != 480 || positions["gateSpacing"].toDouble() != steps[channel])
                     return 13;
                 const auto *surfaceItem = qobject_cast<SurfaceItem *>(surface->property("plot").value<QObject *>());
                 if (!surfaceItem) return 14;
@@ -85,15 +86,16 @@ int main(int argc, char **argv)
                     grid["rowEdges"].value<StaticRangeEdges>().values);
                 const SurfaceAxes::Projection projection(SurfaceCamera{}, QSizeF(800, 600));
                 const auto axes = SurfaceAxes::makeScene(projection, axesGrid, 0, 1, app.font());
-                if (axes.scales[1].title != QStringLiteral("斜距 (m)") || axes.scales[1].low != 0
-                    || axes.scales[1].high != (mixed ? 14340 : (rows - 1) * steps[channel])
+                if (axes.scales[1].title != QStringLiteral("斜距 (m)") || axes.scales[1].low != 480
+                    || axes.scales[1].high != (mixed ? 14340 : 480 + (rows - 1) * steps[channel])
                     || axes.scales[0].title != QStringLiteral("频率 (MHz)")
                     || axes.scales[0].low != 15 * Cdl5::BinMHz || axes.scales[0].high != 254 * Cdl5::BinMHz)
                     return 14;
-                if (mixed && (axesGrid.rowPosition(239) != 3585 || axesGrid.rowPosition(240) != 3600
-                    || std::abs(axesGrid.rowFraction(240) - 3600.0 / 14340) > 1e-12
-                    || std::abs((axesGrid.rowFraction(241) - axesGrid.rowFraction(240))
-                              - 4 * (axesGrid.rowFraction(240) - axesGrid.rowFraction(239))) > 1e-12))
+                const int shift = masks[1]; // 混合通道遮蔽后，图上第 0 门对应模型第 shift 门
+                if (mixed && (axesGrid.rowPosition(239 - shift) != 3585 || axesGrid.rowPosition(240 - shift) != 3600
+                    || std::abs(axesGrid.rowFraction(240 - shift) - (3600.0 - 480) / (14340.0 - 480)) > 1e-12
+                    || std::abs((axesGrid.rowFraction(241 - shift) - axesGrid.rowFraction(240 - shift))
+                              - 4 * (axesGrid.rowFraction(240 - shift) - axesGrid.rowFraction(239 - shift))) > 1e-12))
                     return 14;
                 const QStringList plotNames{QStringLiteral("功率谱"), QStringLiteral("径向风"), QStringLiteral("风廓线")};
                 for (int plot = 0; plot < plotNames.size(); ++plot)
@@ -112,7 +114,7 @@ int main(int argc, char **argv)
             Q_EMIT cdl5->profilesReady(profiles);
         }
         const auto spec = cdl5->chartParameters();
-        if (spec["rows"].toInt() != Cdl5::Rows || spec["columns"].toInt() != Cdl5::Columns
+        if (spec["rows"].toInt() != Cdl5::Rows - 80 || spec["columns"].toInt() != Cdl5::Columns
             || spec["channels"].toInt() != 3 || !cdl5->chartParameters(3).isEmpty()
             || cdl5->acquisitionParameters()["accumMax"].toInt() != Cdl5::MaxAccumSeconds) return 11;
         // 型号范围由 paramsFor 判定：越界造不出参数，也就到不了 begin。

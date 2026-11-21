@@ -67,11 +67,18 @@ constexpr std::array<double, Cdl5::Columns + 1> cdl5WindTable()
 }
 
 using Cdl5Wind = TableMapping<cdl5WindTable>;
+
+// 镜面在 480 m：绘图遮蔽镜面之前的门，各门宽对应 480/门宽 个门。
+inline constexpr int Cdl5MirrorM = 480;
+template<int GateWidthM>
+inline constexpr int Cdl5MirrorMask = Cdl5MirrorM / GateWidthM;
+
 template<int GateWidthM>
 using Cdl5Range = LinearMapping<Cdl5::RangeStartM, static_cast<double>(GateWidthM), Cdl5::Rows>;
-using Cdl5SixRange = Cdl5Range<Cdl5::GateSpacingM[0]>;
-using Cdl5ThirtyRange = Cdl5Range<Cdl5::GateSpacingM[2]>;
-using Cdl5MixedRange = NonLinearMapping<Cdl5::mixedRangeEdges>;
+using Cdl5SixRange = MaskedAxis<Cdl5Range<Cdl5::GateSpacingM[0]>, Cdl5MirrorMask<Cdl5::GateSpacingM[0]>>;
+using Cdl5ThirtyRange = MaskedAxis<Cdl5Range<Cdl5::GateSpacingM[2]>, Cdl5MirrorMask<Cdl5::GateSpacingM[2]>>;
+// 混合通道近段是 15 m 门，遮蔽门数按 15 m 算。
+using Cdl5MixedRange = MaskedAxis<NonLinearMapping<Cdl5::mixedRangeEdges>, Cdl5MirrorMask<Cdl5::GateSpacingM[1]>>;
 static_assert(Cdl5MixedRange::count == Cdl5::MixedGateCount);
 using Cdl5SixFrame = Grid2D<Cdl5SixRange, Cdl5Frequency>;
 using Cdl5ThirtyFrame = Grid2D<Cdl5ThirtyRange, Cdl5Frequency>;
