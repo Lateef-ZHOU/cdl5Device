@@ -68,17 +68,16 @@ constexpr std::array<double, Cdl5::Columns + 1> cdl5WindTable()
 
 using Cdl5Wind = TableMapping<cdl5WindTable>;
 
-// 镜面在 480 m：绘图遮蔽镜面之前的门，各门宽对应 480/门宽 个门。
+// 镜面在 480 m：绘图遮蔽镜面之前的门，各门宽对应 480/门宽 个门（只给图页配置用，不进帧类型）。
 inline constexpr int Cdl5MirrorM = 480;
 template<int GateWidthM>
 inline constexpr int Cdl5MirrorMask = Cdl5MirrorM / GateWidthM;
 
 template<int GateWidthM>
 using Cdl5Range = LinearMapping<Cdl5::RangeStartM, static_cast<double>(GateWidthM), Cdl5::Rows>;
-using Cdl5SixRange = MaskedAxis<Cdl5Range<Cdl5::GateSpacingM[0]>, Cdl5MirrorMask<Cdl5::GateSpacingM[0]>>;
-using Cdl5ThirtyRange = MaskedAxis<Cdl5Range<Cdl5::GateSpacingM[2]>, Cdl5MirrorMask<Cdl5::GateSpacingM[2]>>;
-// 混合通道近段是 15 m 门，遮蔽门数按 15 m 算。
-using Cdl5MixedRange = MaskedAxis<NonLinearMapping<Cdl5::mixedRangeEdges>, Cdl5MirrorMask<Cdl5::GateSpacingM[1]>>;
+using Cdl5SixRange = Cdl5Range<Cdl5::GateSpacingM[0]>;
+using Cdl5ThirtyRange = Cdl5Range<Cdl5::GateSpacingM[2]>;
+using Cdl5MixedRange = NonLinearMapping<Cdl5::mixedRangeEdges>;
 static_assert(Cdl5MixedRange::count == Cdl5::MixedGateCount);
 using Cdl5SixFrame = Grid2D<Cdl5SixRange, Cdl5Frequency>;
 using Cdl5ThirtyFrame = Grid2D<Cdl5ThirtyRange, Cdl5Frequency>;
@@ -138,23 +137,52 @@ private:
     }
 
     // 从硬件帧直接填最终谱。混合谱近段取 15 m 槽，远段取 60 m 槽。
+    // 原谱进 spectrum（落盘），去噪谱进 denoised（绘图与风速/CNR 拟合）。
+    // 本底 = 各槽第一个距离门（镜面之前）；混合通道远段用 60 m 槽自己的首门。
     Frame decode() const
     {
         const char *const data = raw_.constData();
         auto six = std::make_unique<Cdl5SixFrame>();
+        auto sixDenoised = std::make_unique<Cdl5SixFrame>();
         auto thirty = std::make_unique<Cdl5ThirtyFrame>();
+        auto thirtyDenoised = std::make_unique<Cdl5ThirtyFrame>();
         auto fifteen = std::make_unique<Cdl5MixedFrame>();
+        auto fifteenDenoised = std::make_unique<Cdl5MixedFrame>();
+        const auto floorOf = [&](const int slot) {
+            std::array<double, Cdl5::Columns> floor{};
+            for (qsizetype c = 0; c < Cdl5::Columns; ++c)
+                floor[c] = Cdl5::power(data + (c + 1) * Cdl5::RecordBytes + slot * 4);
+            return floor;
+        };
+        const auto sixFloor = floorOf(0);
+        const auto fifteenFloor = floorOf(1);
+        const auto thirtyFloor = floorOf(2);
+        const auto sixtyFloor = floorOf(3);
         for (qsizetype i = 0; i < Points; ++i) {
             const char *record = data + (i + 1) * Cdl5::RecordBytes;
-            (*six)[i] = Cdl5::power(record);
-            (*fifteen)[i] = Cdl5::power(record + 4);
-            (*thirty)[i] = Cdl5::power(record + 8);
-            if (i >= Cdl5::FirstFarGate * Cdl5::Columns)
-                (*fifteen)[i + (Cdl5::Rows - Cdl5::FirstFarGate) * Cdl5::Columns] = Cdl5::power(record + 12);
+            const qsizetype column = i % Cdl5::Columns;
+            const auto denoisedValue = [&](const double value, const auto &floor) {
+                return i < Cdl5::Columns ? 0.0 : value - floor[column]; // 本底门自身归零
+            };
+            const double p6 = Cdl5::power(record);
+            const double p15 = Cdl5::power(record + 4);
+            const double p30 = Cdl5::power(record + 8);
+            (*six)[i] = p6;
+            (*sixDenoised)[i] = denoisedValue(p6, sixFloor);
+            (*fifteen)[i] = p15;
+            (*fifteenDenoised)[i] = denoisedValue(p15, fifteenFloor);
+            (*thirty)[i] = p30;
+            (*thirtyDenoised)[i] = denoisedValue(p30, thirtyFloor);
+            if (i >= Cdl5::FirstFarGate * Cdl5::Columns) {
+                const qsizetype farIndex = i + (Cdl5::Rows - Cdl5::FirstFarGate) * Cdl5::Columns;
+                const double p60 = Cdl5::power(record + 12);
+                (*fifteen)[farIndex] = p60;
+                (*fifteenDenoised)[farIndex] = p60 - sixtyFloor[column];
+            }
         }
-        return {Cdl5SixChannel(std::move(six), Cdl5Wind{}, "ADC0_6m"),
-                Cdl5ThirtyChannel(std::move(thirty), Cdl5Wind{}, "ADC0_30m"),
-                Cdl5MixedChannel(std::move(fifteen), Cdl5Wind{}, "ADC0_15m")};
+        return {Cdl5SixChannel(std::move(six), std::move(sixDenoised), Cdl5Wind{}, "ADC0_6m"),
+                Cdl5ThirtyChannel(std::move(thirty), std::move(thirtyDenoised), Cdl5Wind{}, "ADC0_30m"),
+                Cdl5MixedChannel(std::move(fifteen), std::move(fifteenDenoised), Cdl5Wind{}, "ADC0_15m")};
     }
 
     QByteArray raw_{FrameBytes, Qt::Uninitialized}; // 原样帧（含帧头记录）；解析后释放

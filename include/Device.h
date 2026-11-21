@@ -86,8 +86,8 @@ public:
     }
     Q_INVOKABLE QVariantMap chartParameters(int channel = 0) const
     {
-        const auto specification = []<class Range, class Frequency>(QString name) {
-            auto result = DAQChartSpecification::make<Range, Frequency>(-90, 90, std::numeric_limits<float>::max());
+        const auto specification = []<class Range, class Frequency>(QString name, int rangeMask) {
+            auto result = DAQChartSpecification::make<Range, Frequency>(-90, 90, std::numeric_limits<float>::max(), rangeMask);
             result.insert("channels", static_cast<int>(std::tuple_size_v<Cdl5Collector::Frame>));
             result.insert("channelName", name);
             result.insert("cnrMin", -50);
@@ -96,9 +96,9 @@ public:
         };
         switch (channel)
         {
-        case 0: return specification.template operator()<Cdl5SixRange, Cdl5Frequency>(QStringLiteral("6m"));
-        case 1: return specification.template operator()<Cdl5ThirtyRange, Cdl5Frequency>(QStringLiteral("30m"));
-        case 2: return specification.template operator()<Cdl5MixedRange, Cdl5Frequency>(QStringLiteral("15m"));
+        case 0: return specification.template operator()<Cdl5SixRange, Cdl5Frequency>(QStringLiteral("6m"), Cdl5MirrorMask<Cdl5::GateSpacingM[0]>);
+        case 1: return specification.template operator()<Cdl5ThirtyRange, Cdl5Frequency>(QStringLiteral("30m"), Cdl5MirrorMask<Cdl5::GateSpacingM[2]>);
+        case 2: return specification.template operator()<Cdl5MixedRange, Cdl5Frequency>(QStringLiteral("15m"), Cdl5MirrorMask<Cdl5::GateSpacingM[1]>);
         default: return {};
         }
     }
@@ -188,7 +188,7 @@ public:
     Q_INVOKABLE bool setData(const Cdl5Channels &channels, double low, double high)
     {
         if (!channels) return false;
-        return setSpectrum(std::get<0>(*channels).spectrum, low, high);
+        return setSpectrum(std::get<0>(*channels).displaySpectrum(), low, high);
     }
 };
 
@@ -230,7 +230,7 @@ public:
     Q_INVOKABLE bool setData(const Cdl5Channels &channels, double low, double high)
     {
         if (!channels) return false;
-        return setSpectrum(std::get<1>(*channels).spectrum, low, high);
+        return setSpectrum(std::get<1>(*channels).displaySpectrum(), low, high);
     }
 };
 
@@ -272,7 +272,7 @@ public:
     Q_INVOKABLE bool setData(const Cdl5Channels &channels, double low, double high)
     {
         if (!channels) return false;
-        return setSpectrum(std::get<2>(*channels).spectrum, low, high);
+        return setSpectrum(std::get<2>(*channels).displaySpectrum(), low, high);
     }
 };
 

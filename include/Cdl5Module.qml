@@ -73,7 +73,7 @@ ModulePage {
             id: barbs0
             objectName: "barbsADC0"
             configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1,
-                maxHeight: root.adc0.spec.rangeStop})
+                maxHeight: root.adc0.spec.rangeStop, rangeMask: root.adc0.spec.rangeMask})
             Connections {
                 target: internals.device
                 function onProfilesReady(profiles) { barbs0.appendProfiles(profiles) }
@@ -91,7 +91,7 @@ ModulePage {
             id: barbs2
             objectName: "barbsADC1"
             configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1,
-                maxHeight: root.adc1.spec.rangeStop})
+                maxHeight: root.adc1.spec.rangeStop, rangeMask: root.adc1.spec.rangeMask})
             Connections {
                 target: internals.device
                 function onProfilesReady(profiles) { barbs2.appendProfiles(profiles) }
@@ -109,7 +109,7 @@ ModulePage {
             id: barbs3
             objectName: "barbsADC2"
             configuration: ({heightBins: 1, windowSeconds: 120, columnSeconds: 1,
-                maxHeight: root.adc2.spec.rangeStop})
+                maxHeight: root.adc2.spec.rangeStop, rangeMask: root.adc2.spec.rangeMask})
             Connections {
                 target: internals.device
                 function onProfilesReady(profiles) { barbs3.appendProfiles(profiles) }

@@ -90,6 +90,21 @@ void verify()
         for (int bin = 0; bin < 240; ++bin)
             check(decoded[2].spectrum[gate * 240 + bin] == double((gate - 180) * 240 + bin) + 1,
                   "far gates start at slot 3 gate 60");
+    // 去噪是必经点：风速/CNR 从扣本底后的谱拟合，原谱只用于落盘。
+    {
+        auto denoisedSix = std::make_unique<Cdl5SixFrame>();
+        for (qsizetype i = 0; i < C::Points; ++i) {
+            const qsizetype column = i % Cdl5::Columns;
+            (*denoisedSix)[i] = i < Cdl5::Columns ? 0.0
+                : decoded[0].spectrum[i] - decoded[0].spectrum[column];
+        }
+        const Cdl5SixChannel expected(std::move(denoisedSix), Cdl5Wind{});
+        bool same = true;
+        for (std::size_t k = 0; k < expected.radialWind->size(); ++k)
+            same = same && (*expected.radialWind)[k] == decoded[0].radialWind[k]
+                        && (*expected.cnr)[k] == decoded[0].cnr[k];
+        check(same, "wind and CNR fit the denoised spectrum, not the saved raw spectrum");
+    }
     static_assert(Cdl5MixedRange::at(239) == 3585 && Cdl5MixedRange::at(240) == 3600
         && Cdl5MixedRange::at(241) == 3660 && Cdl5MixedRange::at(419) == 14340
         && Cdl5MixedRange::stop == 14400);
